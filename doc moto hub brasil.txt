@@ -1,0 +1,264 @@
+📖 Moto Hub Brasil — Documentação de APIs
+Supabase URL: https://nwueiinchrvlqfxuxbxr.supabase.co API Base: https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1
+
+Para testar com cURL, substitua SEU_TOKEN_JWT pelo token de acesso do usuário logado. Você pode obtê-lo no DevTools → Application → Local Storage → sb-nwueiinchrvlqfxuxbxr-auth-token → access_token.
+
+ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo
+1. USERS
+Listar todos os usuários
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/users?select=id,name,avatar,level,xp,location&order=xp.desc&limit=20" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Buscar usuário por ID
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/users?id=eq.UUID_DO_USUARIO&select=*" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Buscar usuário por email
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/users?email=eq.usuario@email.com&select=*" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Atualizar perfil do usuário
+bash
+curl -X PATCH \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/users?id=eq.UUID_DO_USUARIO" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "name": "Novo Nome",
+    "bio": "Apaixonado por motos!",
+    "motorcycle": {"brand": "BMW", "model": "R 1250 GS", "year": "2024"},
+    "location": "São Paulo, SP"
+  }'
+Adicionar XP (atualizar xp e level)
+bash
+curl -X PATCH \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/users?id=eq.UUID_DO_USUARIO" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"xp": 250, "level": 1}'
+2. NEWS
+Listar todas as notícias publicadas
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/news?published=eq.true&order=created_at.desc" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Criar notícia
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/news" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "title": "Honda CB 500 Hornet 2026 é revelada",
+    "summary": "A nova naked da Honda chega com design agressivo e motor otimizado.",
+    "image": "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?w=800",
+    "source": "MotoMundo",
+    "url": "https://motomundo.com.br/cb500",
+    "published": true
+  }'
+Atualizar notícia
+bash
+curl -X PATCH \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/news?id=eq.UUID_DA_NOTICIA" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{"title": "Título Atualizado", "published": false}'
+Deletar notícia
+bash
+curl -X DELETE \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/news?id=eq.UUID_DA_NOTICIA" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+3. ROUTES
+Listar todas as rotas (por likes)
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/routes?select=*&order=likes.desc" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Criar rota
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/routes" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "name": "Serra do Rio do Rastro",
+    "difficulty": "Expert",
+    "distance": "24km",
+    "xp": 500,
+    "latitude": -28.3949,
+    "longitude": -49.6105,
+    "origin": "Lauro Müller - SC",
+    "destination": "Bom Jardim da Serra - SC",
+    "image": "https://images.unsplash.com/photo-1621847466085-3004b901a7S8?w=600",
+    "created_by": {"id": "uuid", "name": "Piloto", "avatar": "url"}
+  }'
+Atualizar likes de uma rota
+bash
+curl -X PATCH \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/routes?id=eq.UUID_DA_ROTA" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"likes": 42}'
+Deletar rota
+bash
+curl -X DELETE \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/routes?id=eq.UUID_DA_ROTA" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+4. EVENTS
+Listar todos os eventos
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/events?select=*&order=likes.desc" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Criar evento
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/events" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "title": "Moto Laguna 2026",
+    "date": "12 MAR",
+    "location": "Laguna, SC",
+    "description": "O maior encontro de motociclistas do sul!",
+    "image": "https://images.unsplash.com/photo-1621847466085?w=400",
+    "premium": true,
+    "latitude": -28.4812,
+    "longitude": -48.7840,
+    "created_by": {"id": "uuid", "name": "Organizador"}
+  }'
+Atualizar evento (ex: adicionar participante)
+bash
+curl -X PATCH \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/events?id=eq.UUID_DO_EVENTO" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"likes": 10, "attendees": [{"id": "uuid", "name": "Piloto"}]}'
+5. PRODUCTS
+Listar todos os produtos
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/products?select=*&order=created_at.desc" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+Criar produto
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/products" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "name": "Capacete LS2 Stream",
+    "price": "R$ 899,00",
+    "category": "Equipamentos",
+    "image": "https://images.unsplash.com/photo-1557803175-298328003610?w=400",
+    "description": "Capacete com ventilação superior",
+    "stock": 15
+  }'
+6. SALES
+Listar vendas
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/sales?select=*&order=created_at.desc" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+Registrar venda
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/sales" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -H "Prefer: return=representation" \
+  -d '{
+    "type": "Produto",
+    "product_name": "Capacete LS2 Stream",
+    "price": "R$ 899,00",
+    "commission": 89.90,
+    "date": "16/02/2026"
+  }'
+7. ACTIVITY LOGS
+Listar logs de um usuário
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/activity_logs?user_id=eq.UUID_DO_USUARIO&select=*&order=created_at.desc&limit=50" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+Registrar atividade
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/activity_logs" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "UUID_DO_USUARIO",
+    "type": "xp_gain",
+    "description": "Ganhou 100 XP: Rota concluída",
+    "metadata": {"xp_amount": 100, "reason": "Rota concluída"}
+  }'
+🔐 Autenticação
+Login (obter token JWT)
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/token?grant_type=password" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "seu_email@email.com",
+    "password": "sua_senha"
+  }'
+O campo access_token da resposta é o SEU_TOKEN_JWT usado nos outros comandos.
+
+Registrar novo usuário
+bash
+curl -X POST \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/signup" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "novo_piloto@email.com",
+    "password": "senha123456",
+    "data": {"name": "Novo Piloto"}
+  }'
+Verificar sessão atual
+bash
+curl -X GET \
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/user" \
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+📊 Resumo das Tabelas
+Tabela	GET	POST	PATCH	DELETE
+users	✅ Público	✅ Auth	✅ Próprio	❌
+news	✅ Público	✅ Auth	✅ Auth	✅ Auth
+routes	✅ Público	✅ Auth	✅ Auth	✅ Próprio
+events	✅ Público	✅ Auth	✅ Auth	✅ Próprio
+products	✅ Público	✅ Auth	✅ Auth	✅ Auth
+sales	✅ Auth	✅ Auth	❌	❌
+activity_logs	✅ Público	✅ Todos	❌	❌

@@ -1,0 +1,13 @@
+{
+    "name": "moto-hub-news-agent",
+    "version": "1.0.0",
+    "type": "module",
+    "description": "AI Agent para pesquisar e publicar noticias de motos no Moto Hub Brasil",
+    "scripts": {
+        "start": "node news-agent.js",
+        "test": "node news-agent.js --dry-run"
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.95.3"
+    }
+}

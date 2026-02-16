@@ -1,0 +1,50 @@
+name: 🏍️ Moto Hub News Agent
+
+on:
+  # Executa automaticamente 2x por dia (8h e 18h horário de Brasília)
+  schedule:
+    - cron: '0 11 * * *'   # 08:00 BRT (UTC-3)
+    - cron: '0 21 * * *'   # 18:00 BRT (UTC-3)
+  
+  # Permite execução manual pelo GitHub
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Número de notícias para publicar'
+        required: false
+        default: '3'
+      dry_run:
+        description: 'Modo simulação (não publica)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  publish-news:
+    runs-on: ubuntu-latest
+    name: 📰 Pesquisar e Publicar Notícias
+
+    steps:
+      - name: 📥 Checkout do código
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🤖 Executar News Agent
+        working-directory: ./agents
+        env:
+          AGENT_EMAIL: ${{ secrets.AGENT_EMAIL }}
+          AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            node news-agent.js --dry-run --count ${{ github.event.inputs.count || '3' }}
+          else
+            node news-agent.js --count ${{ github.event.inputs.count || '3' }}
+          fi
+
+      - name: 📊 Resumo
+        if: always()
+        run: echo "✅ Agente executado em $(date -d '+3 hours' '+%d/%m/%Y %H:%M BRT' 2>/dev/null || date '+%d/%m/%Y %H:%M UTC')"

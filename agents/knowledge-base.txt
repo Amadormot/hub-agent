@@ -1,0 +1,382 @@
+# MOTO HUB BRASIL — BASE DE CONHECIMENTO DO AGENTE DE NOTÍCIAS
+# Este documento serve como referência completa para o AI News Agent
+
+================================================================================
+1. VISÃO GERAL DO PROJETO
+================================================================================
+
+O Moto Hub Brasil é um aplicativo social para motociclistas brasileiros.
+Funcionalidades: feed de notícias, rotas de moto, eventos, ranking, loja e perfil.
+Stack: React + Vite + Tailwind CSS + Supabase (backend e banco de dados).
+
+================================================================================
+2. CONFIGURAÇÃO DO SUPABASE
+================================================================================
+
+URL:     https://nwueiinchrvlqfxuxbxr.supabase.co
+API:     https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1
+Auth:    https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1
+Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo
+
+================================================================================
+3. AUTENTICAÇÃO
+================================================================================
+
+Para operações que modificam dados (POST, PATCH, DELETE), é necessário
+um token JWT obtido via login.
+
+--- LOGIN ---
+POST https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/token?grant_type=password
+
+Headers:
+  apikey: [ANON_KEY]
+  Content-Type: application/json
+
+Body:
+  {"email": "admin@email.com", "password": "senha"}
+
+Resposta: { "access_token": "eyJ...", "token_type": "bearer", ... }
+
+Usar o access_token nos headers:
+  Authorization: Bearer eyJ...
+
+--- CADASTRO ---
+POST https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/signup
+
+Body:
+  {"email": "novo@email.com", "password": "senha", "data": {"name": "Nome"}}
+
+--- SESSÃO ATUAL ---
+GET https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/user
+  Authorization: Bearer [TOKEN]
+
+================================================================================
+4. TABELA: NEWS (Notícias)
+================================================================================
+
+Estrutura:
+  id          UUID (auto)
+  title       TEXT (obrigatório) — Título da notícia
+  summary     TEXT (obrigatório) — Resumo/subtítulo
+  content     TEXT              — Conteúdo completo
+  image       TEXT (obrigatório) — URL da imagem
+  source      TEXT              — Nome da fonte (default: 'Moto Hub Admin')
+  url         TEXT              — Link da matéria original
+  author      TEXT              — Autor (default: 'admin', usar 'ai-agent')
+  published   BOOLEAN           — Se está publicada (default: true)
+  created_at  TIMESTAMPTZ       — Data de criação (auto)
+  updated_at  TIMESTAMPTZ       — Última atualização (auto)
+
+--- LISTAR NOTÍCIAS ---
+GET /rest/v1/news?published=eq.true&order=created_at.desc
+Headers: apikey, Authorization
+
+--- CRIAR NOTÍCIA ---
+POST /rest/v1/news
+Headers: apikey, Authorization, Content-Type, Prefer: return=representation
+Body:
+{
+  "title": "Honda CG 160 lidera vendas",
+  "summary": "A CG 160 continua no topo das vendas no Brasil.",
+  "image": "https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800",
+  "source": "MotoHubBR",
+  "url": "https://honda.com.br",
+  "author": "ai-agent",
+  "published": true
+}
+
+--- ATUALIZAR NOTÍCIA ---
+PATCH /rest/v1/news?id=eq.[UUID]
+Headers: apikey, Authorization, Content-Type
+Body:
+{"title": "Título atualizado", "published": false}
+
+--- DELETAR NOTÍCIA ---
+DELETE /rest/v1/news?id=eq.[UUID]
+Headers: apikey, Authorization
+
+================================================================================
+5. TABELA: USERS (Usuários)
+================================================================================
+
+Estrutura:
+  id                UUID (PK)
+  email             TEXT UNIQUE
+  name              TEXT
+  avatar            TEXT
+  motorcycle        JSONB {brand, model, year}
+  level             INTEGER
+  xp                INTEGER
+  location          TEXT
+  details           JSONB {city, state}
+  bio               TEXT
+  is_admin          BOOLEAN
+  premium           BOOLEAN
+  liked_routes      TEXT[]
+  favorite_routes   TEXT[]
+  liked_events      TEXT[]
+  favorite_events   TEXT[]
+  following_list    TEXT[]
+  followers_list    TEXT[]
+  routes_completed  INTEGER
+  events_attended   INTEGER
+  "clubBadge"       TEXT
+  "avatarFraming"   JSONB {zoom, x, y}
+  "badgeFraming"    JSONB {zoom, x, y}
+  completed_routes  JSONB
+  past_events       JSONB
+  patches           TEXT[]
+  created_at        TIMESTAMPTZ
+  updated_at        TIMESTAMPTZ
+
+--- LISTAR USUÁRIOS ---
+GET /rest/v1/users?select=id,name,avatar,level,xp&order=xp.desc&limit=20
+
+--- BUSCAR POR EMAIL ---
+GET /rest/v1/users?email=eq.usuario@email.com
+
+--- ATUALIZAR PERFIL ---
+PATCH /rest/v1/users?id=eq.[UUID]
+Body: {"name": "Novo Nome", "bio": "Piloto de BMW"}
+
+================================================================================
+6. TABELA: ROUTES (Rotas)
+================================================================================
+
+Estrutura:
+  id            UUID (PK)
+  name          TEXT
+  difficulty    TEXT (Fácil, Médio, Expert)
+  distance      TEXT ('24km')
+  description   TEXT
+  image         TEXT
+  xp            INTEGER
+  likes         INTEGER
+  latitude      FLOAT
+  longitude     FLOAT
+  origin        TEXT
+  destination   TEXT
+  creator_id    UUID (FK -> users)
+  created_by    JSONB {id, name, avatar}
+  liked_by      TEXT[]
+  created_at    TIMESTAMPTZ
+
+--- LISTAR ROTAS ---
+GET /rest/v1/routes?select=*&order=likes.desc
+
+--- CRIAR ROTA ---
+POST /rest/v1/routes
+Body:
+{
+  "name": "Serra do Rio do Rastro",
+  "difficulty": "Expert",
+  "distance": "24km",
+  "xp": 500,
+  "latitude": -28.3949,
+  "longitude": -49.6105,
+  "image": "https://..."
+}
+
+================================================================================
+7. TABELA: EVENTS (Eventos)
+================================================================================
+
+Estrutura:
+  id            UUID (PK)
+  title         TEXT
+  date          TEXT ('12 MAR')
+  location      TEXT
+  description   TEXT
+  image         TEXT
+  premium       BOOLEAN
+  likes         INTEGER
+  latitude      FLOAT
+  longitude     FLOAT
+  organizer_id  UUID (FK -> users)
+  created_by    JSONB
+  attendees     JSONB []
+  liked_by      TEXT[]
+  created_at    TIMESTAMPTZ
+
+--- LISTAR EVENTOS ---
+GET /rest/v1/events?select=*&order=likes.desc
+
+--- CRIAR EVENTO ---
+POST /rest/v1/events
+Body:
+{
+  "title": "Moto Laguna 2026",
+  "date": "12 MAR",
+  "location": "Laguna, SC",
+  "premium": true,
+  "image": "https://..."
+}
+
+================================================================================
+8. TABELA: PRODUCTS (Produtos)
+================================================================================
+
+Estrutura:
+  id          UUID (PK)
+  name        TEXT
+  price       TEXT ('R$ 899,00')
+  category    TEXT
+  image       TEXT
+  description TEXT
+  link        TEXT
+  stock       INTEGER
+  created_at  TIMESTAMPTZ
+
+--- LISTAR PRODUTOS ---
+GET /rest/v1/products?select=*&order=created_at.desc
+
+--- CRIAR PRODUTO ---
+POST /rest/v1/products
+Body:
+{
+  "name": "Capacete LS2 Stream",
+  "price": "R$ 899,00",
+  "category": "Equipamentos",
+  "image": "https://...",
+  "stock": 15
+}
+
+================================================================================
+9. TABELA: SALES (Vendas)
+================================================================================
+
+Estrutura:
+  id            UUID (PK)
+  type          TEXT ('Produto')
+  product_name  TEXT
+  product_id    UUID (FK -> products)
+  buyer_id      UUID (FK -> users)
+  price         TEXT
+  commission    NUMERIC
+  date          TEXT
+  created_at    TIMESTAMPTZ
+
+--- REGISTRAR VENDA ---
+POST /rest/v1/sales
+Body:
+{
+  "type": "Produto",
+  "product_name": "Capacete LS2",
+  "price": "R$ 899,00",
+  "commission": 89.90
+}
+
+================================================================================
+10. TABELA: ACTIVITY_LOGS (Logs de Atividade)
+================================================================================
+
+Estrutura:
+  id          UUID (PK)
+  user_id     UUID (FK -> users)
+  type        TEXT ('xp_gain', 'route_complete', etc)
+  description TEXT
+  metadata    JSONB
+  created_at  TIMESTAMPTZ
+
+--- REGISTRAR LOG ---
+POST /rest/v1/activity_logs
+Body:
+{
+  "user_id": "[UUID]",
+  "type": "xp_gain",
+  "description": "Ganhou 100 XP",
+  "metadata": {"xp_amount": 100}
+}
+
+================================================================================
+11. PERMISSÕES (RLS)
+================================================================================
+
+Tabela          SELECT      INSERT      PATCH       DELETE
+users           Público     Auth own    Auth own    —
+news            Público     Auth        Auth        Auth
+routes          Público     Auth        Auth        Owner
+events          Público     Auth        Auth        Owner
+products        Público     Auth        Auth        Auth
+sales           Auth        Auth        —           —
+activity_logs   Público     Todos       —           —
+
+Auth = precisa token JWT
+Owner = precisa ser o criador
+Público = sem auth (usando apenas apikey)
+
+================================================================================
+12. HEADERS PADRÃO PARA TODAS AS CHAMADAS
+================================================================================
+
+Sempre enviar:
+  apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo
+
+Para modificações (POST/PATCH/DELETE), adicionar:
+  Authorization: Bearer [TOKEN_JWT_DO_LOGIN]
+  Content-Type: application/json
+  Prefer: return=representation    (para POST e PATCH retornarem o objeto criado)
+
+================================================================================
+13. FILTROS E OPERADORES SUPABASE
+================================================================================
+
+Operador    Significado                  Exemplo
+eq          Igual                       ?campo=eq.valor
+neq         Diferente                   ?campo=neq.valor
+gt          Maior que                   ?campo=gt.10
+gte         Maior ou igual              ?campo=gte.10
+lt          Menor que                   ?campo=lt.10
+lte         Menor ou igual              ?campo=lte.10
+like        Contém (case sensitive)     ?campo=like.*palavra*
+ilike       Contém (case insensitive)   ?campo=ilike.*palavra*
+in          Lista de valores            ?campo=in.(a,b,c)
+is          É nulo / não nulo           ?campo=is.null
+order       Ordenação                   ?order=campo.desc
+limit       Limitar resultados          ?limit=10
+select      Selecionar colunas          ?select=id,name,title
+
+================================================================================
+14. BANCO DE IMAGENS (Fallback)
+================================================================================
+
+Motos (Unsplash):
+  https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format
+  https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?w=800&auto=format
+  https://images.unsplash.com/photo-1609630875171-b1321377ee65?w=800&auto=format
+  https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=800&auto=format
+  https://images.unsplash.com/photo-1525160354320-d8e92641c563?w=800&auto=format
+  https://images.unsplash.com/photo-1622185135505-2d795003994a?w=800&auto=format
+  https://images.unsplash.com/photo-1580310614729-ccd69652491d?w=800&auto=format
+  https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=800&auto=format
+  https://images.unsplash.com/photo-1558981852-426c6c22a060?w=800&auto=format
+  https://images.unsplash.com/photo-1615172282427-72c6a4a53cb0?w=800&auto=format
+
+================================================================================
+15. EXEMPLOS COMPLETOS DE CURL (Windows PowerShell)
+================================================================================
+
+--- Login ---
+curl -X POST `
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/auth/v1/token?grant_type=password" `
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" `
+  -H "Content-Type: application/json" `
+  -d '{"email":"admin@email.com","password":"senha123"}'
+
+--- Publicar Notícia ---
+curl -X POST `
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/news" `
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo" `
+  -H "Authorization: Bearer TOKEN_AQUI" `
+  -H "Content-Type: application/json" `
+  -H "Prefer: return=representation" `
+  -d '{"title":"Noticia teste","summary":"Resumo","image":"https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800","source":"AI Agent","author":"ai-agent","published":true}'
+
+--- Listar Notícias ---
+curl -X GET `
+  "https://nwueiinchrvlqfxuxbxr.supabase.co/rest/v1/news?published=eq.true&order=created_at.desc" `
+  -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53dWVpaW5jaHJ2bHFmeHV4YnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODQxMDAsImV4cCI6MjA4Njc2MDEwMH0.uBCW_BO8O7luMsGOX-w2Ogso2xzc59mV4NrTIAsVudo"
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================
