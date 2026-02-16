@@ -65,7 +65,7 @@ export default function Profile() {
                             className="p-2 bg-primary/20 backdrop-blur-md rounded-full border border-primary/30 text-primary hover:bg-primary hover:text-black transition-all flex items-center gap-2 px-4"
                         >
                             <LayoutDashboard size={18} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Painel Admin</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Painel Admin</span>
                         </button>
                     )}
                     <button

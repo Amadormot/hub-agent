@@ -167,6 +167,42 @@ export default function NewsManager() {
                 </div>
                 <div className="flex gap-2">
                     <button
+                        onClick={async () => {
+                            const token = import.meta.env.VITE_GITHUB_ACTOR_TOKEN;
+                            if (!token) {
+                                alert("Token do GitHub não configurado! Adicione VITE_GITHUB_ACTOR_TOKEN no arquivo .env");
+                                return;
+                            }
+
+                            if (!window.confirm("Deseja iniciar o Agente de Notícias agora?")) return;
+
+                            try {
+                                const res = await fetch('https://api.github.com/repos/Amadormot/hub-agent/actions/workflows/news-agent.yml/dispatches', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`,
+                                        'Accept': 'application/vnd.github.v3+json',
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ ref: 'master' })
+                                });
+
+                                if (res.ok) {
+                                    notify("Agente disparado! 🚀 Aguarde alguns minutos para ver as notícias.", 'success');
+                                } else {
+                                    const err = await res.text();
+                                    notify(`Erro ao disparar agente: ${res.status}`, 'error');
+                                }
+                            } catch (e) {
+                                notify(`Erro de conexão: ${e.message}`, 'error');
+                            }
+                        }}
+                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 border border-blue-500/30"
+                    >
+                        <span className="text-base">🤖</span>
+                        Executar Agente
+                    </button>
+                    <button
                         onClick={() => setIsImportOpen(true)}
                         className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 border border-blue-500/30"
                     >
