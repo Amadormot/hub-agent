@@ -94,7 +94,9 @@ async function fetchGoogleNews() {
         'moto nova honda yamaha kawasaki',
         'motociclismo evento encontro brasil',
         'moto adventure estrada viagem',
-        'capacete moto equipamento segurança'
+        'capacete moto equipamento segurança',
+        'motos brasil notícias',
+        'lançamento moto brasil'
     ];
 
     // Data de hoje AAAA-MM-DD
@@ -118,39 +120,45 @@ async function fetchGoogleNews() {
     }
 }
 
-/**
- * Fonte 2: Reddit (API pública)
- */
-async function fetchRedditNews() {
-    try {
-        const res = await fetch(
-            'https://www.reddit.com/r/motorcycles/hot.json?limit=25',
-            { headers: { 'User-Agent': 'MotoHubBrasil/1.0' } }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const posts = data?.data?.children || [];
-
-        return posts
-            .filter(p => p.data.title && !p.data.over_18 && p.data.score > 5)
-            // Reddit usa segundos, JS usa ms
-            .map(p => ({
-                title: p.data.title.slice(0, 150),
-                summary: (p.data.selftext || `Popular no r/motorcycles com ${p.data.score} upvotes.`).slice(0, 300),
-                source: 'Reddit',
-                url: `https://reddit.com${p.data.permalink}`,
-                image: (p.data.thumbnail?.startsWith('http') ? p.data.thumbnail : null) || randomImage(),
-                date: new Date(p.data.created_utc * 1000)
-            }));
-    } catch (err) {
-        console.log(`  ⚠️  Reddit: ${err.message}`);
-        return [];
-    }
-}
-
 // ═══════════════════════════════════════════════════════════
 // UTILITÁRIOS
 // ═══════════════════════════════════════════════════════════
+
+/**
+ * Valida se a URL é de uma fonte brasileira confiável
+ */
+function isBrazilianSource(url) {
+    if (!url) return false;
+
+    // Lista de domínios brasileiros de renome sobre motos
+    const brazilianDomains = [
+        'duasrodas.com.br',
+        'moto.com.br',
+        'motociclismoonline.com.br',
+        'motoadventure.com.br',
+        'webmotors.com.br',
+        'motorcycle.com.br',
+        'motorede.com.br',
+        'motociclismo.com.br',
+        'mundomotociclista.com.br',
+        'portaldotransito.com.br',
+        'revistamoto.com.br',
+        'g1.globo.com',
+        'uol.com.br',
+        'estadao.com.br',
+        'folha.uol.com.br'
+    ];
+
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+
+        // Verifica se o hostname contém algum dos domínios brasileiros
+        return brazilianDomains.some(domain => hostname.includes(domain));
+    } catch {
+        return false;
+    }
+}
 
 function parseRSS(xml, source) {
     const items = [];
@@ -163,7 +171,8 @@ function parseRSS(xml, source) {
         const desc = extractTag(block, 'description');
         const pubDate = extractTag(block, 'pubDate');
 
-        if (title && title.length > 10) {
+        // Filtrar apenas fontes brasileiras
+        if (title && title.length > 10 && isBrazilianSource(link)) {
             items.push({
                 title: cleanText(title).slice(0, 150),
                 summary: cleanText(desc || `Notícia via ${source}`).slice(0, 300),
@@ -270,16 +279,14 @@ async function main() {
     const todayStr = new Date().toLocaleDateString('pt-BR');
     console.log(`🔍 Pesquisando notícias de motos do dia [${todayStr}]...\n`);
 
-    const [google, reddit] = await Promise.all([
-        fetchGoogleNews(),
-        fetchRedditNews()
+    const [google] = await Promise.all([
+        fetchGoogleNews()
     ]);
 
-    console.log(`   📰 Google News: ${google.length} artigos encontrados`);
-    console.log(`   📰 Reddit:      ${reddit.length} posts encontrados\n`);
+    console.log(`   📰 Google News: ${google.length} artigos encontrados (apenas fontes brasileiras)\n`);
 
     // Filtrar estritamente por hoje
-    const allNews = dedup([...google, ...reddit]).filter(n => isToday(n.date));
+    const allNews = dedup([...google]).filter(n => isToday(n.date));
 
     console.log(`   ✅ Total de HOJE e Únicas: ${allNews.length}\n`);
 
