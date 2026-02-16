@@ -90,8 +90,9 @@ async function supabaseInsert(table, record, token) {
  */
 async function fetchDirectRSS() {
     const feeds = [
-        { url: 'https://www.duasrodas.com.br/feed', name: 'Duas Rodas' },
-        { url: 'https://www.moto.com.br/feed', name: 'Moto.com.br' }
+        { url: 'https://www.motoo.com.br/feed', name: 'MOTOO' },
+        { url: 'https://www.motonline.com.br/feed', name: 'Motonline' },
+        { url: 'https://motociclismoonline.com.br/feed', name: 'Motociclismo Online' }
     ];
 
     const allNews = [];
@@ -102,7 +103,7 @@ async function fetchDirectRSS() {
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const xml = await res.text();
-            const items = parseRSS(xml, feed.name);
+            const items = parseRSS(xml, feed.name, true);
             allNews.push(...items);
         } catch (err) {
             console.log(`  ⚠️  ${feed.name}: ${err.message}`);
@@ -112,38 +113,34 @@ async function fetchDirectRSS() {
 }
 
 /**
- * Fonte 2: Google News RSS (backup)
+ * Fonte 2: Google News RSS (fonte principal)
  */
 async function fetchGoogleNews() {
-    const keywords = [
-        'motocicleta brasil lançamento',
-        'moto nova honda yamaha kawasaki',
-        'motociclismo evento encontro brasil',
-        'moto adventure estrada viagem',
-        'capacete moto equipamento segurança',
-        'motos brasil notícias',
-        'lançamento moto brasil'
+    const queries = [
+        'motos brasil',
+        'motocicleta lançamento brasil',
+        'moto honda yamaha brasil'
     ];
 
-    // Data de hoje AAAA-MM-DD
-    const today = new Date().toISOString().split('T')[0];
-    const keyword = keywords[Math.floor(Math.random() * keywords.length)];
+    const allNews = [];
+    for (const keyword of queries) {
+        try {
+            const query = encodeURIComponent(keyword);
+            const url = `https://news.google.com/rss/search?q=${query}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
 
-    // Adiciona after:AAAA-MM-DD para forçar notícias recentes
-    const query = `${encodeURIComponent(keyword)} after:${today}`;
-    const url = `https://news.google.com/rss/search?q=${query}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
-
-    try {
-        const res = await fetch(url, {
-            headers: { 'User-Agent': 'MotoHubBrasil/1.0' }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const xml = await res.text();
-        return parseRSS(xml, 'Google News');
-    } catch (err) {
-        console.log(`  ⚠️  Google News: ${err.message}`);
-        return [];
+            const res = await fetch(url, {
+                headers: { 'User-Agent': 'MotoHubBrasil/1.0' }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const xml = await res.text();
+            const items = parseGoogleNewsRSS(xml);
+            allNews.push(...items);
+            await sleep(300);
+        } catch (err) {
+            console.log(`  ⚠️  Google News [${keyword}]: ${err.message}`);
+        }
     }
+    return allNews;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -156,37 +153,67 @@ async function fetchGoogleNews() {
 function isBrazilianSource(url) {
     if (!url) return false;
 
-    // Lista de domínios brasileiros de renome sobre motos
     const brazilianDomains = [
-        'duasrodas.com.br',
-        'moto.com.br',
+        // Sites especializados em motos
+        'motoo.com.br',
+        'motonline.com.br',
         'motociclismoonline.com.br',
         'motoadventure.com.br',
+        'duasrodas.com.br',
+        'moto.com.br',
         'webmotors.com.br',
         'motorcycle.com.br',
         'motorede.com.br',
-        'motociclismo.com.br',
         'mundomotociclista.com.br',
-        'portaldotransito.com.br',
         'revistamoto.com.br',
+        'showradical.com',
+        // Sites automotivos
+        'autopapo.com.br',
+        'autoesporte.globo.com',
+        'motor1.uol.com.br',
+        'quatrorodas.abril.com.br',
+        'motorshow.com.br',
+        'mobiauto.com.br',
+        'car.blog.br',
+        'vrum.com.br',
+        'noticiasautomotivas.com.br',
+        // Portais de notícias
         'g1.globo.com',
         'uol.com.br',
         'estadao.com.br',
-        'folha.uol.com.br'
+        'folha.uol.com.br',
+        'gazetasp.com.br',
+        'em.com.br',
+        'cnnbrasil.com.br',
+        'veja.abril.com.br',
+        'cartacapital.com.br',
+        'infomoney.com.br',
+        'diariodopara.com.br',
+        'diariodaregiao.com.br',
+        'monitordomercado.com.br',
+        'timesbrasil.com.br',
+        'noticiasaominuto.com.br',
+        'olhardigital.com.br',
+        'oantagonista.com.br',
+        'agenciabrasil.ebc.com.br',
+        'ig.com.br',
+        'gov.br',
+        'portaldotransito.com.br',
+        'agazeta.com.br',
+        'mobilidade.estadao.com.br',
+        'saladeimprensa.honda.com.br'
     ];
 
     try {
         const urlObj = new URL(url);
         const hostname = urlObj.hostname.toLowerCase();
-
-        // Verifica se o hostname contém algum dos domínios brasileiros
         return brazilianDomains.some(domain => hostname.includes(domain));
     } catch {
         return false;
     }
 }
 
-function parseRSS(xml, source) {
+function parseRSS(xml, source, skipDomainCheck = false) {
     const items = [];
     const regex = /<item>([\s\S]*?)<\/item>/g;
     let m;
@@ -197,12 +224,48 @@ function parseRSS(xml, source) {
         const desc = extractTag(block, 'description');
         const pubDate = extractTag(block, 'pubDate');
 
-        // Filtrar apenas fontes brasileiras
-        if (title && title.length > 10 && isBrazilianSource(link)) {
+        if (title && title.length > 10 && (skipDomainCheck || isBrazilianSource(link))) {
             items.push({
                 title: cleanText(title).slice(0, 150),
                 summary: cleanText(desc || `Notícia via ${source}`).slice(0, 300),
                 source,
+                url: link || '#',
+                image: randomImage(),
+                date: pubDate ? new Date(pubDate) : new Date()
+            });
+        }
+    }
+    return items;
+}
+
+/**
+ * Parser especial para Google News RSS
+ * Extrai <source url="..."> para validar domínio ao invés do link redirect
+ */
+function parseGoogleNewsRSS(xml) {
+    const items = [];
+    const regex = /<item>([\s\S]*?)<\/item>/g;
+    let m;
+    while ((m = regex.exec(xml)) !== null) {
+        const block = m[1];
+        const title = extractTag(block, 'title');
+        const link = extractTag(block, 'link');
+        const desc = extractTag(block, 'description');
+        const pubDate = extractTag(block, 'pubDate');
+
+        // Extrair URL real da tag <source url="...">
+        const sourceMatch = block.match(/<source\s+url="([^"]+)"[^>]*>([^<]*)<\/source>/);
+        const sourceUrl = sourceMatch ? sourceMatch[1] : '';
+        const sourceName = sourceMatch ? sourceMatch[2] : 'Google News';
+
+        // Limpar título (Google News adiciona " - Fonte" no final)
+        const cleanTitle = title.replace(/\s*-\s*[^-]+$/, '');
+
+        if (cleanTitle && cleanTitle.length > 10 && isBrazilianSource(sourceUrl)) {
+            items.push({
+                title: cleanText(cleanTitle).slice(0, 150),
+                summary: cleanText(desc || `Notícia via ${sourceName}`).slice(0, 300),
+                source: sourceName,
                 url: link || '#',
                 image: randomImage(),
                 date: pubDate ? new Date(pubDate) : new Date()
@@ -222,13 +285,13 @@ function cleanText(s) {
 }
 
 /**
- * Valida se a data é dos últimos 3 dias
+ * Valida se a data é dos últimos 5 dias
  */
 function isRecent(date) {
     if (!date || !(date instanceof Date)) return false;
     const now = new Date();
-    const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
-    return date >= threeDaysAgo && date <= now;
+    const fiveDaysAgo = new Date(now.getTime() - (5 * 24 * 60 * 60 * 1000));
+    return date >= fiveDaysAgo && date <= now;
 }
 
 function randomImage() {
@@ -303,7 +366,7 @@ async function main() {
     }
 
     // 2. Pesquisar notícias
-    console.log(`🔍 Pesquisando notícias de motos (últimos 3 dias)...\n`);
+    console.log(`🔍 Pesquisando notícias de motos (últimos 5 dias)...\n`);
 
     const [rss, google] = await Promise.all([
         fetchDirectRSS(),
