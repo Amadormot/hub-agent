@@ -213,6 +213,69 @@ function isBrazilianSource(url) {
     }
 }
 
+/**
+ * Busca a imagem de destaque (og:image) de um artigo
+ */
+async function fetchArticleImage(url) {
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'MotoHubBrasil/1.0' },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!res.ok) return null;
+        const html = await res.text();
+
+        // Tentar og:image primeiro (padrão Open Graph)
+        const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+        if (ogMatch && ogMatch[1]) return ogMatch[1];
+
+        // Fallback: twitter:image
+        const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+        if (twMatch && twMatch[1]) return twMatch[1];
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Busca og:description para melhorar o resumo
+ */
+async function fetchArticleMeta(url) {
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'MotoHubBrasil/1.0' },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!res.ok) return {};
+        const html = await res.text();
+
+        // og:image
+        const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+
+        // og:description
+        const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
+
+        // twitter:image (fallback)
+        const twImg = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+
+        return {
+            image: (ogImg && ogImg[1]) || (twImg && twImg[1]) || null,
+            description: (ogDesc && ogDesc[1]) || null
+        };
+    } catch {
+        return {};
+    }
+}
+
 function parseRSS(xml, source, skipDomainCheck = false) {
     const items = [];
     const regex = /<item>([\s\S]*?)<\/item>/g;
@@ -409,20 +472,28 @@ async function main() {
                 continue;
             }
 
+            // Buscar imagem real e descrição do artigo
+            process.stdout.write('🔗 ');
+            const meta = await fetchArticleMeta(item.url);
+            const articleImage = meta.image || randomImage();
+            const articleSummary = meta.description
+                ? cleanText(meta.description).slice(0, 300)
+                : item.summary;
+
             const result = await supabaseInsert('news', {
                 title: item.title,
-                summary: item.summary,
-                image: item.image,
+                summary: articleSummary,
+                image: articleImage,
                 source: item.source,
                 url: item.url,
-                created_at: new Date().toISOString(), // Garante timestamp atual
+                created_at: new Date().toISOString(),
                 author: 'ai-agent',
                 published: true
             }, token);
 
-            console.log(`→ ✅ ID: ${result.id}`);
+            console.log(`→ ✅ ID: ${result.id} ${meta.image ? '🖼️' : '📷'}`);
             published++;
-            await sleep(300);
+            await sleep(500);
         } catch (err) {
             console.log(`→ ❌ ${err.message}`);
             errors++;
