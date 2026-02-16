@@ -119,7 +119,11 @@ async function fetchGoogleNews() {
     const queries = [
         'motos brasil',
         'motocicleta lançamento brasil',
-        'moto honda yamaha brasil'
+        'moto honda yamaha brasil',
+        'moto elétrica brasil',
+        'moto custom brasil',
+        'review moto brasil',
+        'comparativo motos brasil'
     ];
 
     const allNews = [];
@@ -153,7 +157,7 @@ async function fetchGoogleNews() {
 function isBrazilianSource(url) {
     if (!url) return false;
 
-    const brazilianDomains = [
+    const brazilianDomains = [ // ... existing domains ...
         // Sites especializados em motos
         'motoo.com.br',
         'motonline.com.br',
@@ -451,7 +455,7 @@ async function main() {
 
     console.log('');
     console.log('  ═══════════════════════════════════════════');
-    console.log('   🏍️  MOTO HUB BRASIL — AI NEWS AGENT');
+    console.log('   🏍️  JORNADA BIKER — AI NEWS AGENT');
     console.log('  ═══════════════════════════════════════════');
     console.log(`   Modo: ${opts.dryRun ? '🧪 DRY RUN' : '🚀 PRODUÇÃO'}`);
     console.log(`   Máximo: ${opts.count} notícias`);
@@ -489,7 +493,7 @@ async function main() {
     console.log(`   📰 Google News: ${google.length} artigos encontrados\n`);
 
     // Filtrar por últimos 3 dias
-    const allNews = dedup([...rss, ...google]).filter(n => isRecent(n.date));
+    const allNews = shuffle(dedup([...rss, ...google])).filter(n => isRecent(n.date));
 
     console.log(`   ✅ Total Recente e Únicas: ${allNews.length}\n`);
 
@@ -502,7 +506,8 @@ async function main() {
     let published = 0, skipped = 0, errors = 0;
     console.log('📤 Publicando...\n');
 
-    for (const item of allNews.slice(0, opts.count)) {
+    for (const item of allNews) {
+        if (published >= opts.count) break;
         const shortTitle = item.title.length > 60 ? item.title.slice(0, 57) + '...' : item.title;
         process.stdout.write(`   📰 [${new Date(item.date).toLocaleTimeString()}] "${shortTitle}" `);
 

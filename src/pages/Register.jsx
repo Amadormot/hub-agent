@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { motion } from 'framer-motion';
 import { Bike } from 'lucide-react';
+import Logo from '../components/Logo';
 
 export default function Register() {
     const [name, setName] = useState('');
@@ -50,6 +51,9 @@ export default function Register() {
                     animate={{ y: 0, opacity: 1 }}
                     className="text-center mb-8"
                 >
+                    <div className="inline-flex justify-center items-center mb-4">
+                        <Logo size={80} />
+                    </div>
                     <h1 className="text-3xl font-black text-white">Crie sua conta</h1>
                     <p className="text-gray-400 mt-2">Junte-se à maior comunidade de motociclistas.</p>
                 </motion.div>

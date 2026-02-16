@@ -8,6 +8,7 @@ import Garagem from './pages/Garagem';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
+import NewsFeed from './pages/NewsFeed';
 import ProtectedRoute from './components/ProtectedRoute';
 import { UserProvider } from './contexts/UserContext';
 import { ChatProvider } from './contexts/ChatContext';
@@ -36,6 +37,7 @@ function App() {
                     <Route path="eventos" element={<Events />} />
                     <Route path="garagem" element={<Garagem />} />
                     <Route path="admin" element={<AdminDashboard />} />
+                    <Route path="noticias" element={<NewsFeed />} />
                     <Route path="perfil" element={
                       <ErrorBoundary>
                         <Profile />

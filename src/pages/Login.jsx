@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { motion } from 'framer-motion';
-import { Bike, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import Logo from '../components/Logo';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -47,10 +48,10 @@ export default function Login() {
                     animate={{ y: 0, opacity: 1 }}
                     className="text-center mb-10"
                 >
-                    <div className="inline-flex justify-center items-center w-16 h-16 bg-gradient-to-br from-gray-800 to-black rounded-2xl border border-white/10 mb-4 shadow-xl">
-                        <Bike size={32} className="text-primary" />
+                    <div className="inline-flex justify-center items-center mb-4">
+                        <Logo size={80} />
                     </div>
-                    <h1 className="text-3xl font-black text-white px-200">MOTO HUB <span className="text-primary">BRASIL</span></h1>
+                    <h1 className="text-3xl font-black text-white px-200">JORNADA <span className="text-primary">BIKER</span></h1>
                     <p className="text-gray-400 mt-2">O sistema operacional do motociclista.</p>
                 </motion.div>
 

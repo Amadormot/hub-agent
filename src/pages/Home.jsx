@@ -1,9 +1,22 @@
 import { useUser } from '../contexts/UserContext';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trophy, MapPin, Heart } from 'lucide-react';
+import { Trophy, MapPin, Heart, Newspaper, Clock, ExternalLink, List } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import clsx from 'clsx';
+
+function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) return `${diffMins}min`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d`;
+}
 
 export default function Home() {
     const { user } = useUser();
@@ -37,29 +50,64 @@ export default function Home() {
                 </div>
             </motion.section>
 
-            {/* Feed de Notícias (Stories Style) */}
-            <section className="relative z-10">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Feed de Notícias</h3>
-                <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-hide">
-                    {/* Skeleton Loading or Empty State could be added here */}
-                    {news.map((item) => (
-                        <motion.div
-                            key={item.id}
-                            className="shrink-0 w-64 h-32 bg-zinc-900 rounded-xl overflow-hidden relative border border-white/5 active:scale-95 transition-transform"
-                            onClick={() => window.open(item.url, '_blank')}
-                        >
-                            <img src={item.image} className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent p-4 flex flex-col justify-end">
-                                <span className="bg-primary text-black text-[8px] font-black px-1.5 py-0.5 rounded w-fit mb-1">
-                                    {item.source}
-                                </span>
-                                <h4 className="text-white font-black text-sm leading-tight line-clamp-2">{item.title}</h4>
-                                <span className="text-[9px] text-gray-300 mt-1">{item.date}</span>
+            {/* Feed de Notícias — Redesigned */}
+            {news.length > 0 && (
+                <section className="relative z-10">
+                    <div className="flex justify-between items-end mb-3 px-1">
+                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                            <Newspaper size={18} className="text-primary" />
+                            Radar de Notícias
+                        </h3>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">
+                                {news.length} artigos
+                            </span>
+                            <button
+                                onClick={() => navigate('/noticias')}
+                                className="bg-white/5 hover:bg-white/10 text-primary p-2 rounded-xl border border-white/5 transition-colors active:scale-95"
+                                title="Ver todos os artigos e buscar"
+                            >
+                                <List size={16} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* News — Horizontal Scroll */}
+                    <div className="flex gap-3 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
+                        {news.map((item) => (
+                            <div
+                                key={item.id}
+                                className="shrink-0 w-72 h-40 rounded-xl overflow-hidden relative border border-white/5 cursor-pointer group active:scale-[0.97] transition-transform"
+                                onClick={() => window.open(item.url, '_blank')}
+                            >
+                                <img
+                                    src={item.image}
+                                    alt={item.title}
+                                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop';
+                                    }}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                                <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                                    <span className="bg-primary/90 text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        {item.source}
+                                    </span>
+                                    <span className="bg-black/50 backdrop-blur-sm text-gray-300 text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-white/10 flex items-center gap-0.5">
+                                        <Clock size={8} /> {timeAgo(item.created_at || item.date)}
+                                    </span>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 p-3">
+                                    <h4 className="text-white font-bold text-sm leading-snug line-clamp-2 drop-shadow-md">
+                                        {item.title}
+                                    </h4>
+                                </div>
                             </div>
-                        </motion.div>
-                    ))}
-                </div>
-            </section>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Rotas em Alta (Horizontal Scroll) */}
             <section className="relative z-10">

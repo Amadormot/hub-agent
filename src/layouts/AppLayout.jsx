@@ -1,6 +1,7 @@
 import { Outlet, Link } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useUser } from '../contexts/UserContext';
+import Logo from '../components/Logo';
 
 export default function AppLayout() {
     const { user } = useUser();
@@ -9,9 +10,12 @@ export default function AppLayout() {
         <div className="min-h-screen bg-background text-white font-sans flex flex-col">
             {/* Global Header */}
             <header className="fixed top-0 left-0 right-0 h-24 bg-background/95 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-6 z-50">
-                <h1 className="text-2xl font-black text-white tracking-tight">
-                    MOTO HUB <span className="text-primary">BRASIL</span>
-                </h1>
+                <div className="flex items-center gap-3">
+                    <Logo size={40} />
+                    <h1 className="text-xl font-black text-white tracking-tight leading-none">
+                        JORNADA <span className="block text-primary text-sm">BIKER</span>
+                    </h1>
+                </div>
 
                 <Link to="/perfil" className="relative group active:scale-95 transition-all mr-2">
                     {/* Avatar Container */}
