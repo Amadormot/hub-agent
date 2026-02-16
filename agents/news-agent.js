@@ -225,7 +225,7 @@ function parseArgs() {
     const get = (flag) => { const i = args.indexOf(flag); return i !== -1 ? args[i + 1] : null; };
     return {
         dryRun: args.includes('--dry-run'),
-        count: parseInt(get('--count') || '3'),
+        count: parseInt(get('--count') || '5'),
         email: get('--email') || process.env.AGENT_EMAIL || '',
         password: get('--pass') || process.env.AGENT_PASSWORD || ''
     };

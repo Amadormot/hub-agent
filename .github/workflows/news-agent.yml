@@ -10,7 +10,7 @@ on:
       count:
         description: 'Numero de noticias para publicar'
         required: false
-        default: '3'
+        default: '5'
       dry_run:
         description: 'Modo simulacao (nao publica)'
         required: false
@@ -38,9 +38,9 @@ jobs:
           AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            node news-agent.js --dry-run --count ${{ github.event.inputs.count || '3' }}
+            node news-agent.js --dry-run --count ${{ github.event.inputs.count || '5' }}
           else
-            node news-agent.js --count ${{ github.event.inputs.count || '3' }}
+            node news-agent.js --count ${{ github.event.inputs.count || '5' }}
           fi
 
       - name: Resumo
