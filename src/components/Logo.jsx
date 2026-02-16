@@ -2,51 +2,34 @@ export default function Logo({ size = 40, className = "" }) {
     return (
         <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
             <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-xl">
-                <defs>
-                    <linearGradient id="logoGradient" x1="0" y1="0" x2="100" y2="100">
-                        <stop offset="0%" stopColor="#EA580C" />
-                        <stop offset="100%" stopColor="#C2410C" />
-                    </linearGradient>
-                    <mask id="shieldMask">
-                        <path d="M50 5 L90 25 L85 80 L50 95 L15 80 L10 25 Z" fill="white" />
-                    </mask>
-                </defs>
-
-                {/* Shield Border */}
+                {/* 1. Engrenagem Externa (Preta/Escura) */}
                 <path
-                    d="M50 5 L90 25 L85 80 L50 95 L15 80 L10 25 Z"
-                    fill="#101010"
-                    stroke="url(#logoGradient)"
-                    strokeWidth="4"
+                    d="M50 2 L54 10 A42 42 0 0 1 65 13 L71 6 L79 11 L77 20 A42 42 0 0 1 87 30 L95 28 L98 37 L90 42 A42 42 0 0 1 90 58 L98 63 L95 72 L87 70 A42 42 0 0 1 77 80 L79 89 L71 94 L65 87 A42 42 0 0 1 54 90 L50 98 L40 98 L36 90 A42 42 0 0 1 25 87 L19 94 L11 89 L13 80 A42 42 0 0 1 3 70 L-5 72 L-8 63 L0 58 A42 42 0 0 1 0 42 L-8 37 L-5 28 L3 30 A42 42 0 0 1 13 20 L11 11 L19 6 L25 13 A42 42 0 0 1 36 10 L40 2 L50 2 Z"
+                    fill="#171717"
                 />
 
-                <g mask="url(#shieldMask)">
-                    {/* 1. NOTÍCIAS (Signal waves in background) */}
-                    <path d="M70 30 Q80 40 70 50" stroke="white" strokeWidth="2" strokeOpacity="0.1" fill="none" />
-                    <path d="M75 25 Q90 40 75 55" stroke="white" strokeWidth="2" strokeOpacity="0.05" fill="none" />
+                {/* 2. Círculo Laranja Interno */}
+                <circle cx="50" cy="50" r="35" stroke="#EA580C" strokeWidth="4" />
 
-                    {/* 2. OFICINA (Bottom-right gear segment) */}
-                    <circle cx="85" cy="85" r="15" stroke="url(#logoGradient)" strokeWidth="8" strokeDasharray="4 4" strokeOpacity="0.2" />
+                {/* 3. Estrada Sinuosa (Laranja) */}
+                <path
+                    d="M45 80 C 45 80, 75 75, 75 55 C 75 40, 35 55, 35 35 C 35 25, 45 20, 50 20"
+                    stroke="#EA580C"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    fill="none"
+                />
 
-                    {/* 3. ROTAS (Winding Road) */}
-                    <path
-                        d="M20 70 C 35 70, 35 30, 50 30 C 65 30, 65 70, 80 70"
-                        stroke="url(#logoGradient)"
-                        strokeWidth="6"
-                        strokeLinecap="round"
-                        fill="none"
-                    />
+                {/* 4. Estrela no Topo (Laranja) */}
+                <path
+                    d="M50 5 L53 14 L63 14 L55 20 L58 30 L50 24 L42 30 L45 20 L37 14 L47 14 Z"
+                    fill="#EA580C"
+                />
 
-                    {/* 4. EVENTOS (Central Highlight Star) */}
-                    <path
-                        d="M50 20 L53 35 L68 38 L53 41 L50 55 L47 41 L32 38 L47 35 Z"
-                        fill="white"
-                        className="animate-pulse"
-                    />
-                </g>
-
-                {/* Accent Point */}
-                <circle cx="50" cy="30" r="2" fill="white" />
+                {/* 5. Três Pontos (Escuros) */}
+                <circle cx="45" cy="40" r="2.5" fill="#171717" />
+                <circle cx="52.5" cy="40" r="2.5" fill="#171717" />
+                <circle cx="60" cy="40" r="2.5" fill="#171717" />
             </svg>
         </div>
     );
