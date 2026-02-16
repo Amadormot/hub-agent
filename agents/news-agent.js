@@ -96,8 +96,14 @@ async function fetchGoogleNews() {
         'moto adventure estrada viagem',
         'capacete moto equipamento segurança'
     ];
+
+    // Data de hoje AAAA-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const keyword = keywords[Math.floor(Math.random() * keywords.length)];
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+
+    // Adiciona after:AAAA-MM-DD para forçar notícias recentes
+    const query = `${encodeURIComponent(keyword)} after:${today}`;
+    const url = `https://news.google.com/rss/search?q=${query}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
 
     try {
         const res = await fetch(url, {
@@ -118,7 +124,7 @@ async function fetchGoogleNews() {
 async function fetchRedditNews() {
     try {
         const res = await fetch(
-            'https://www.reddit.com/r/motorcycles/hot.json?limit=10',
+            'https://www.reddit.com/r/motorcycles/hot.json?limit=25',
             { headers: { 'User-Agent': 'MotoHubBrasil/1.0' } }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -126,106 +132,20 @@ async function fetchRedditNews() {
         const posts = data?.data?.children || [];
 
         return posts
-            .filter(p => p.data.title && !p.data.over_18 && p.data.score > 10)
-            .slice(0, 5)
+            .filter(p => p.data.title && !p.data.over_18 && p.data.score > 5)
+            // Reddit usa segundos, JS usa ms
             .map(p => ({
                 title: p.data.title.slice(0, 150),
                 summary: (p.data.selftext || `Popular no r/motorcycles com ${p.data.score} upvotes.`).slice(0, 300),
                 source: 'Reddit',
                 url: `https://reddit.com${p.data.permalink}`,
-                image: (p.data.thumbnail?.startsWith('http') ? p.data.thumbnail : null) || randomImage()
+                image: (p.data.thumbnail?.startsWith('http') ? p.data.thumbnail : null) || randomImage(),
+                date: new Date(p.data.created_utc * 1000)
             }));
     } catch (err) {
         console.log(`  ⚠️  Reddit: ${err.message}`);
         return [];
     }
-}
-
-/**
- * Fonte 3: Banco de notícias curadas (sempre disponível)
- */
-function getCuratedNews() {
-    const now = new Date();
-    const month = now.toLocaleDateString('pt-BR', { month: 'long' });
-    const year = now.getFullYear();
-
-    const bank = [
-        {
-            title: `Honda CG 160 continua liderando vendas em ${month} ${year}`,
-            summary: `A Honda CG 160 mantém a posição de motocicleta mais vendida do Brasil em ${month}. Referência em custo-benefício, o modelo é a escolha número um do motociclista brasileiro para o dia a dia.`,
-            source: 'MotoHubBR',
-            url: 'https://www.honda.com.br/motos'
-        },
-        {
-            title: 'Guia completo: como pilotar moto na chuva com segurança',
-            summary: 'Pneus adequados, frenagem suave e distância do veículo da frente são fundamentais. Especialistas compartilham dicas cruciais para motociclistas enfrentarem dias chuvosos com segurança.',
-            source: 'SegurançaBR',
-            url: '#'
-        },
-        {
-            title: 'BMW R 1300 GS chega ao Brasil com tecnologia inédita',
-            summary: 'A nova BMW R 1300 GS desembarca no mercado brasileiro com motor boxer aprimorado de 145cv, suspensão semi-ativa e sistema de radar adaptativo. É a trail mais avançada da marca.',
-            source: 'Duas Rodas',
-            url: 'https://www.bmw-motorrad.com.br'
-        },
-        {
-            title: 'Yamaha MT-07: a naked que conquistou o Brasil',
-            summary: 'Com motor bicilíndrico de 689cc e preço competitivo, a Yamaha MT-07 se consolidou como uma das motos mais desejadas do mercado brasileiro. Conheça os detalhos do modelo.',
-            source: 'MotoMundo',
-            url: 'https://www.yamaha-motor.com.br'
-        },
-        {
-            title: 'Triumph Speed 400 supera expectativas de vendas no Brasil',
-            summary: 'A Triumph Speed 400 conquistou os motociclistas brasileiros com design retrô moderno e motor de 400cc. Vendas superaram a meta da fabricante em mais de 40% nos primeiros meses.',
-            source: 'DuasRodas',
-            url: 'https://www.triumph.com.br'
-        },
-        {
-            title: 'Kawasaki Ninja 400: edição especial exclusiva para o Brasil',
-            summary: 'A Kawasaki apresentou a edição especial da Ninja 400 com grafismo exclusivo em verde e preto para o mercado brasileiro. Acessórios de proteção já vêm inclusos no pacote.',
-            source: 'MotoSport',
-            url: 'https://www.kawasaki.com.br'
-        },
-        {
-            title: 'Suzuki V-Strom 800DE: a adventure urbana chegou',
-            summary: 'A Suzuki expandiu a família V-Strom com a 800 DE, otimizada para uso urbano e viagens curtas. Suspensão recalibrada e posição de pilotagem mais baixa miram novos públicos.',
-            source: 'MotoHubBR',
-            url: 'https://www.suzukimotos.com.br'
-        },
-        {
-            title: 'Como escolher o capacete ideal: guia definitivo',
-            summary: 'Certificação, tipo de viseira, ventilação, peso e conforto térmico. Confira nosso guia completo para acertar na escolha do seu próximo capacete e pilotar com máxima segurança.',
-            source: 'EquipamentosBR',
-            url: '#'
-        },
-        {
-            title: `Melhores rotas de moto no Brasil para ${month}`,
-            summary: `Com a chegada de ${month}, as rotas pelo Brasil ficam ainda mais atraentes. Serra do Rio do Rastro, Serra Gaúcha e Estrada da Graciosa são destaques para motociclistas aventureiros.`,
-            source: 'RotasBR',
-            url: '#'
-        },
-        {
-            title: 'Encontro Nacional de Motociclistas bate recorde de público',
-            summary: 'Mais de 15 mil motociclistas de todo o Brasil participaram do maior encontro do país, com test-rides de lançamentos, palestras sobre segurança e shows ao vivo.',
-            source: 'MotoEventos',
-            url: '#'
-        },
-        {
-            title: 'Honda ADV 350 desembarca no mercado brasileiro',
-            summary: 'O scooter aventureiro Honda ADV 350 chega ao Brasil com motor 330cc, ABS de dois canais e design robusto. Ideal para quem busca versatilidade no trânsito urbano e na estrada.',
-            source: 'MotoMundo',
-            url: 'https://www.honda.com.br/motos'
-        },
-        {
-            title: 'Ducati Multistrada V4 Rally: aventura sem limites',
-            summary: 'A Ducati apresentou a Multistrada V4 Rally com tanque de 30 litros e suspensão de longo curso. Projetada para viagens transcontinentais, é a big trail definitiva italiana.',
-            source: 'DuasRodas',
-            url: 'https://www.ducati.com/br'
-        },
-    ];
-
-    // Embaralha e retorna 3 aleatórias
-    return shuffle(bank).slice(0, 3).map(n => ({ ...n, image: randomImage() }));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -236,18 +156,21 @@ function parseRSS(xml, source) {
     const items = [];
     const regex = /<item>([\s\S]*?)<\/item>/g;
     let m;
-    while ((m = regex.exec(xml)) !== null && items.length < 8) {
+    while ((m = regex.exec(xml)) !== null) {
         const block = m[1];
         const title = extractTag(block, 'title');
         const link = extractTag(block, 'link');
         const desc = extractTag(block, 'description');
+        const pubDate = extractTag(block, 'pubDate');
+
         if (title && title.length > 10) {
             items.push({
                 title: cleanText(title).slice(0, 150),
                 summary: cleanText(desc || `Notícia via ${source}`).slice(0, 300),
                 source,
                 url: link || '#',
-                image: randomImage()
+                image: randomImage(),
+                date: pubDate ? new Date(pubDate) : new Date()
             });
         }
     }
@@ -261,6 +184,15 @@ function extractTag(xml, tag) {
 
 function cleanText(s) {
     return s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+}
+
+function isToday(dateObj) {
+    if (!dateObj) return false;
+    const d = new Date(dateObj);
+    const now = new Date();
+    return d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear();
 }
 
 function randomImage() {
@@ -335,23 +267,24 @@ async function main() {
     }
 
     // 2. Pesquisar notícias
-    console.log('🔍 Pesquisando notícias de motos...\n');
+    const todayStr = new Date().toLocaleDateString('pt-BR');
+    console.log(`🔍 Pesquisando notícias de motos do dia [${todayStr}]...\n`);
 
-    const [google, reddit, curated] = await Promise.all([
+    const [google, reddit] = await Promise.all([
         fetchGoogleNews(),
-        fetchRedditNews(),
-        Promise.resolve(getCuratedNews())
+        fetchRedditNews()
     ]);
 
-    console.log(`   📰 Google News: ${google.length} artigos`);
-    console.log(`   📰 Reddit:      ${reddit.length} posts`);
-    console.log(`   📰 Curadas:     ${curated.length} artigos\n`);
+    console.log(`   📰 Google News: ${google.length} artigos encontrados`);
+    console.log(`   📰 Reddit:      ${reddit.length} posts encontrados\n`);
 
-    const allNews = dedup([...google, ...reddit, ...curated]);
-    console.log(`   ✅ Total únicas: ${allNews.length}\n`);
+    // Filtrar estritamente por hoje
+    const allNews = dedup([...google, ...reddit]).filter(n => isToday(n.date));
+
+    console.log(`   ✅ Total de HOJE e Únicas: ${allNews.length}\n`);
 
     if (allNews.length === 0) {
-        console.log('❌ Nenhuma notícia encontrada.');
+        console.log('❌ Nenhuma notícia encontrada para hoje.');
         process.exit(0);
     }
 
@@ -361,7 +294,7 @@ async function main() {
 
     for (const item of allNews.slice(0, opts.count)) {
         const shortTitle = item.title.length > 60 ? item.title.slice(0, 57) + '...' : item.title;
-        process.stdout.write(`   📰 "${shortTitle}" `);
+        process.stdout.write(`   📰 [${new Date(item.date).toLocaleTimeString()}] "${shortTitle}" `);
 
         if (opts.dryRun) {
             console.log('→ ✅ [simulação]');
@@ -384,6 +317,7 @@ async function main() {
                 image: item.image,
                 source: item.source,
                 url: item.url,
+                created_at: new Date().toISOString(), // Garante timestamp atual
                 author: 'ai-agent',
                 published: true
             }, token);
