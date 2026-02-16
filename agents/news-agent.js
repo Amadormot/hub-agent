@@ -213,28 +213,77 @@ function isBrazilianSource(url) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════
+// 🔍 BUSCA INTELIGENTE DE IMAGENS
+// ═══════════════════════════════════════════════════════════
+
+const MOTO_BRANDS = [
+    'honda', 'yamaha', 'kawasaki', 'suzuki', 'bmw', 'ducati', 'triumph',
+    'harley-davidson', 'harley', 'ktm', 'husqvarna', 'royal enfield',
+    'mv agusta', 'aprilia', 'moto guzzi', 'indian', 'dafra', 'shineray',
+    'haojue', 'kasinski', 'benelli', 'cfmoto', 'zontes', 'traxx',
+    'can-am', 'piaggio', 'vespa', 'kymco', 'sym', 'bajaj'
+];
+
 /**
- * Busca a imagem de destaque (og:image) de um artigo
+ * Extrai marca + modelo de moto a partir do título da notícia
  */
-async function fetchArticleImage(url) {
+function extractMotoKeywords(title) {
+    const lower = title.toLowerCase();
+    const found = [];
+
+    // Encontrar marcas conhecidas
+    for (const brand of MOTO_BRANDS) {
+        if (lower.includes(brand)) {
+            found.push(brand);
+        }
+    }
+
+    // Extrair modelos alfanuméricos: CB 300, MT-07, CG 160, XRE 300, Z900, etc.
+    const models = title.match(/\b([A-Z]{1,5}[-\s]?\d{2,4}[A-Z]{0,2})\b/gi);
+    if (models) found.push(...models);
+
+    // Extrair nomes de modelos conhecidos
+    const knownModels = ['tenere', 'ténéré', 'transalp', 'africa twin', 'versys',
+        'ninja', 'burgman', 'biz', 'pop', 'factor', 'crosser', 'lander',
+        'fazer', 'neo', 'pcx', 'adv', 'trail', 'sahara', 'falcon',
+        'titan', 'fan', 'start', 'nmax', 'xmax', 'tracer', 'tiger',
+        'street triple', 'speed triple', 'multistrada', 'panigale',
+        'scrambler', 'monster', 'diavel', 'sportster', 'iron', 'fat boy',
+        'road king', 'electra glide', 'street glide', 'adventure',
+        'super cub', 'goldwing', 'gold wing'];
+    for (const model of knownModels) {
+        if (lower.includes(model)) {
+            found.push(model);
+        }
+    }
+
+    return found.length > 0 ? [...new Set(found)].join(' ') : null;
+}
+
+/**
+ * Busca imagem da moto na web via Bing Images
+ */
+async function searchImageOnWeb(keywords) {
+    const query = encodeURIComponent(keywords + ' moto motocicleta');
+    const url = `https://www.bing.com/images/search?q=${query}&qft=+filterui:photo-photo&form=IRFLTR&first=1`;
+
     try {
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'MotoHubBrasil/1.0' },
-            redirect: 'follow',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'pt-BR,pt;q=0.9'
+            },
             signal: AbortSignal.timeout(8000)
         });
         if (!res.ok) return null;
         const html = await res.text();
 
-        // Tentar og:image primeiro (padrão Open Graph)
-        const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-        if (ogMatch && ogMatch[1]) return ogMatch[1];
-
-        // Fallback: twitter:image
-        const twMatch = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
-            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
-        if (twMatch && twMatch[1]) return twMatch[1];
+        // Bing armazena URLs das imagens no formato "murl":"..."
+        const match = html.match(/"murl":"(https?:\/\/[^"]+)"/i);
+        if (match && match[1]) {
+            return match[1].replace(/\\u002f/g, '/');
+        }
 
         return null;
     } catch {
@@ -243,7 +292,7 @@ async function fetchArticleImage(url) {
 }
 
 /**
- * Busca og:description para melhorar o resumo
+ * Busca metadados do artigo (imagem og:image + descrição)
  */
 async function fetchArticleMeta(url) {
     try {
@@ -475,7 +524,35 @@ async function main() {
             // Buscar imagem real e descrição do artigo
             process.stdout.write('🔗 ');
             const meta = await fetchArticleMeta(item.url);
-            const articleImage = meta.image || randomImage();
+
+            // Cadeia de fallback para imagem:
+            // 1. og:image do artigo
+            // 2. Buscar imagem na web por marca/modelo
+            // 3. Buscar imagem genérica de moto
+            // 4. Imagem aleatória de stock
+            let articleImage = meta.image;
+            let imageSource = '🖼️';
+
+            if (!articleImage) {
+                const keywords = extractMotoKeywords(item.title);
+                if (keywords) {
+                    process.stdout.write(`🔎[${keywords}] `);
+                    articleImage = await searchImageOnWeb(keywords);
+                    imageSource = '🔍';
+                }
+            }
+
+            if (!articleImage) {
+                // Busca genérica por "motocicleta" como último recurso antes do stock
+                articleImage = await searchImageOnWeb(item.title.split(' ').slice(0, 4).join(' '));
+                imageSource = '🌐';
+            }
+
+            if (!articleImage) {
+                articleImage = randomImage();
+                imageSource = '📷';
+            }
+
             const articleSummary = meta.description
                 ? cleanText(meta.description).slice(0, 300)
                 : item.summary;
@@ -491,7 +568,7 @@ async function main() {
                 published: true
             }, token);
 
-            console.log(`→ ✅ ID: ${result.id} ${meta.image ? '🖼️' : '📷'}`);
+            console.log(`→ ✅ ID: ${result.id} ${imageSource}`);
             published++;
             await sleep(500);
         } catch (err) {
