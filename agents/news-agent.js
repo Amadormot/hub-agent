@@ -86,7 +86,33 @@ async function supabaseInsert(table, record, token) {
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Fonte 1: Google News RSS (público, sem API key)
+ * Fonte 1: Feeds RSS Diretos de Sites Brasileiros
+ */
+async function fetchDirectRSS() {
+    const feeds = [
+        { url: 'https://www.duasrodas.com.br/feed', name: 'Duas Rodas' },
+        { url: 'https://www.moto.com.br/feed', name: 'Moto.com.br' }
+    ];
+
+    const allNews = [];
+    for (const feed of feeds) {
+        try {
+            const res = await fetch(feed.url, {
+                headers: { 'User-Agent': 'MotoHubBrasil/1.0' }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const xml = await res.text();
+            const items = parseRSS(xml, feed.name);
+            allNews.push(...items);
+        } catch (err) {
+            console.log(`  ⚠️  ${feed.name}: ${err.message}`);
+        }
+    }
+    return allNews;
+}
+
+/**
+ * Fonte 2: Google News RSS (backup)
  */
 async function fetchGoogleNews() {
     const keywords = [
@@ -195,13 +221,14 @@ function cleanText(s) {
     return s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
 }
 
-function isToday(dateObj) {
-    if (!dateObj) return false;
-    const d = new Date(dateObj);
+/**
+ * Valida se a data é dos últimos 3 dias
+ */
+function isRecent(date) {
+    if (!date || !(date instanceof Date)) return false;
     const now = new Date();
-    return d.getDate() === now.getDate() &&
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear();
+    const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
+    return date >= threeDaysAgo && date <= now;
 }
 
 function randomImage() {
@@ -276,19 +303,20 @@ async function main() {
     }
 
     // 2. Pesquisar notícias
-    const todayStr = new Date().toLocaleDateString('pt-BR');
-    console.log(`🔍 Pesquisando notícias de motos do dia [${todayStr}]...\n`);
+    console.log(`🔍 Pesquisando notícias de motos (últimos 3 dias)...\n`);
 
-    const [google] = await Promise.all([
+    const [rss, google] = await Promise.all([
+        fetchDirectRSS(),
         fetchGoogleNews()
     ]);
 
-    console.log(`   📰 Google News: ${google.length} artigos encontrados (apenas fontes brasileiras)\n`);
+    console.log(`   📰 Feeds Diretos: ${rss.length} artigos encontrados`);
+    console.log(`   📰 Google News: ${google.length} artigos encontrados\n`);
 
-    // Filtrar estritamente por hoje
-    const allNews = dedup([...google]).filter(n => isToday(n.date));
+    // Filtrar por últimos 3 dias
+    const allNews = dedup([...rss, ...google]).filter(n => isRecent(n.date));
 
-    console.log(`   ✅ Total de HOJE e Únicas: ${allNews.length}\n`);
+    console.log(`   ✅ Total Recente e Únicas: ${allNews.length}\n`);
 
     if (allNews.length === 0) {
         console.log('❌ Nenhuma notícia encontrada para hoje.');
