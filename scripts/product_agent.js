@@ -113,7 +113,8 @@ async function researchDirectLink(keywords, platform) {
     else if (platform === 'mercado_livre') domain = 'mercadolivre.com.br';
     else if (platform === 'shopee') domain = 'shopee.com.br';
 
-    const query = encodeURIComponent(`site:${domain} ${keywords}`);
+    // Busca mais ampla para evitar ser bloqueado ou não achar o site:domain
+    const query = encodeURIComponent(`${keywords} ${domain}`);
     const url = `https://www.bing.com/search?q=${query}`;
 
     try {
