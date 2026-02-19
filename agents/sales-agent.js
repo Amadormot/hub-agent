@@ -42,7 +42,7 @@ const PRODUCT_CATEGORIES = [
     { name: 'Peças', keywords: ['Pneu Metzeler Karoo Street', 'Kit Relação Vaz Gold', 'Pastilha Freio Cobreq Racing', 'Filtro Ar Lavável', 'Escapamento Esportivo Yoshimura'] },
     { name: 'Manutenção', keywords: ['Kit Limpeza Motul C1 C4', 'Graxa Branca Spray', 'Capa de Chuva Pantaneiro', 'Carregador Bateria Inteligente'] },
     { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog'] },
-    { name: 'Super Ofertas 🔥', keywords: ['Promoção Relâmpago Moto', 'Outlet Capacete', 'Oferta Luva Couro', 'Melhor Preço Intercomunicador', 'Queima de Estoque Jaqueta'] }
+    { name: 'Super Ofertas 🔥', keywords: ['Capacete Axxis Draken', 'Intercomunicador FreedConn T-Com', 'Luva de Couro Monster X', 'Kit Transmissão DID Gold', 'Jaqueta Motoqueiro Cordura'] }
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -132,158 +132,175 @@ async function researchProductAssets(keywords, platformId) {
 
                 if (foundImage && foundDirectUrl) break;
             } catch (e) { }
-        }
+            // SEGUNDA ONDA: Sniper de Texto (Se a imagem não deu link direto)
+            if (!foundDirectUrl) {
+                const textUrl = `https://www.bing.com/search?q=${encodeURIComponent(`site:${domain} ${keywords}`)}`;
+                const textRes = await fetch(textUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+                    signal: AbortSignal.timeout(5000)
+                });
+                if (textRes.ok) {
+                    const textHtml = await textRes.text();
+                    // Regex ultra-agressiva para links de produto no HTML
+                    let regex;
+                    if (platformId === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+?\/dp\/[A-Z0-9]{10}/i;
+                    else if (platformId === 'mercado_livre') regex = /https?:\/\/www\.mercadolivre\.com\.br\/[^"'\s?]+?MLB[^\s"']+/i;
 
-        return { image: foundImage, directUrl: foundDirectUrl };
-    } catch { return { image: null, directUrl: null }; }
-}
+                    const textMatch = textHtml.match(regex);
+                    if (textMatch) foundDirectUrl = textMatch[0];
+                }
+            }
+
+            return { image: foundImage, directUrl: foundDirectUrl };
+        } catch { return { image: null, directUrl: null }; }
+    }
 
 function generateAffiliateLink(productName, platformId, directUrl = null) {
-    const query = encodeURIComponent(productName);
-    const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
+        const query = encodeURIComponent(productName);
+        const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
 
-    // Se temos um link direto, usamos ele como base
-    const base = directUrl || `${platform.baseUrl}${query}`;
-    const connector = base.includes('?') ? '&' : '?';
+        // Se temos um link direto, usamos ele como base
+        const base = directUrl || `${platform.baseUrl}${query}`;
+        const connector = base.includes('?') ? '&' : '?';
 
-    if (platform.id === 'amazon') {
-        return directUrl ? `${base}${connector}tag=${platform.tag}` : `${platform.baseUrl}${query}&tag=${platform.tag}`;
-    } else if (platform.id === 'mercado_livre') {
-        return `${base}${connector}matt_tool=${platform.tag}&matt_word=${platform.word}`;
-    }
-
-    return base;
-}
-
-// ═══════════════════════════════════════════════════════════
-// MAIN LOGIC
-// ═══════════════════════════════════════════════════════════
-
-async function main() {
-    const args = process.argv.slice(2);
-    const dryRun = args.includes('--dry-run');
-    const email = process.env.AGENT_EMAIL || args[args.indexOf('--email') + 1];
-    const pass = process.env.AGENT_PASSWORD || args[args.indexOf('--pass') + 1];
-
-    console.log('🤖 MOTO HUB — AI SALES AGENT starting...');
-
-    let token = null;
-    if (!dryRun) {
-        if (!email || !pass) {
-            console.error('❌ Falta AGENT_EMAIL/AGENT_PASSWORD');
-            process.exit(1);
+        if (platform.id === 'amazon') {
+            return directUrl ? `${base}${connector}tag=${platform.tag}` : `${platform.baseUrl}${query}&tag=${platform.tag}`;
+        } else if (platform.id === 'mercado_livre') {
+            return `${base}${connector}matt_tool=${platform.tag}&matt_word=${platform.word}`;
         }
-        token = await login(email, pass);
+
+        return base;
     }
 
-    const targetPerPlatform = 20;
-    const platformStats = {};
-    const platforms = Object.keys(AFFILIATE_CONFIG);
-    platforms.forEach(p => platformStats[p] = 0);
+    // ═══════════════════════════════════════════════════════════
+    // MAIN LOGIC
+    // ═══════════════════════════════════════════════════════════
 
-    let totalPublished = 0;
-    const maxTotal = targetPerPlatform * platforms.length;
+    async function main() {
+        const args = process.argv.slice(2);
+        const dryRun = args.includes('--dry-run');
+        const email = process.env.AGENT_EMAIL || args[args.indexOf('--email') + 1];
+        const pass = process.env.AGENT_PASSWORD || args[args.indexOf('--pass') + 1];
 
-    // Embaralha categorias para diversidade
-    const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
+        console.log('🤖 MOTO HUB — AI SALES AGENT starting...');
 
-    for (const category of shuffledCategories) {
-        if (totalPublished >= maxTotal) break;
+        let token = null;
+        if (!dryRun) {
+            if (!email || !pass) {
+                console.error('❌ Falta AGENT_EMAIL/AGENT_PASSWORD');
+                process.exit(1);
+            }
+            token = await login(email, pass);
+        }
 
-        console.log(`\n📂 Categoria: ${category.name}`);
+        const targetPerPlatform = 20;
+        const platformStats = {};
+        const platforms = Object.keys(AFFILIATE_CONFIG);
+        platforms.forEach(p => platformStats[p] = 0);
 
-        // Embaralha keywords da categoria
-        const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
+        let totalPublished = 0;
+        const maxTotal = targetPerPlatform * platforms.length;
 
-        for (const keyword of shuffledKeywords) {
+        // Embaralha categorias para diversidade
+        const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
+
+        for (const category of shuffledCategories) {
             if (totalPublished >= maxTotal) break;
 
-            console.log(`🔍 Buscando ofertas para: ${keyword}`);
+            console.log(`\n📂 Categoria: ${category.name}`);
 
-            // Variantes por keyword com inteligência de recomendação e preço
-            const variants = [
-                { suffix: 'Original Loja Oficial', priceMult: 1, desc: '⭐ RECOMENDADO: Produto de Loja Oficial com máxima pontualidade e procedência garantida.', intel: '[LOJA OFICIAL ⭐]' },
-                { suffix: 'Pro Edition Elite', priceMult: 1.4, desc: '🏆 TOP DE LINHA: Selecionado entre os mais bem avaliados por motociclistas profissionais.', intel: '[ALTA RECOMENDAÇÃO 🏆]' },
-                { suffix: 'Promoção Imbatível', priceMult: 0.70, desc: '💰 PREÇO BAIXO: A oferta mais barata encontrada hoje com boa reputação do vendedor.', intel: '[OFERTA IMBATÍVEL 💰]' },
-                { suffix: 'Custo-Benefício Real', priceMult: 0.85, desc: '🤝 EQUILÍBRIO: O melhor equilíbrio entre preço justo e satisfação do comprador.', intel: '[MELHOR CUSTO-BENEFÍCIO]' }
-            ];
+            // Embaralha keywords da categoria
+            const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
 
-            const pricesPerCategory = {
-                'Equipamentos': { min: 250, max: 1800 },
-                'Acessórios': { min: 50, max: 600 },
-                'Peças': { min: 120, max: 1200 },
-                'Manutenção': { min: 30, max: 150 },
-                'Moda & Estilo': { min: 45, max: 250 },
-                'Super Ofertas 🔥': { min: 40, max: 400 }
-            };
-
-            const catPrice = pricesPerCategory[category.name] || { min: 100, max: 500 };
-            const basePriceNum = Math.floor(Math.random() * (catPrice.max - catPrice.min) + catPrice.min);
-
-            const trendingProducts = variants.map(v => ({
-                name: `${keyword} ${v.suffix}`,
-                price: `R$ ${(basePriceNum * v.priceMult).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                description: `${v.desc} Ideal para sua jornada sobre duas rodas.`
-            }));
-
-            const platforms = Object.keys(AFFILIATE_CONFIG);
-
-            for (const p of trendingProducts) {
+            for (const keyword of shuffledKeywords) {
                 if (totalPublished >= maxTotal) break;
 
-                // Seleciona apenas plataformas que ainda não atingiram a meta
-                const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
-                if (availablePlatforms.length === 0) break;
+                console.log(`🔍 Buscando ofertas para: ${keyword}`);
 
-                const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
+                // Variantes por keyword com inteligência de recomendação e preço
+                const variants = [
+                    { suffix: 'Original Loja Oficial', priceMult: 1, desc: '⭐ RECOMENDADO: Produto de Loja Oficial com máxima pontualidade e procedência garantida.', intel: '[LOJA OFICIAL ⭐]' },
+                    { suffix: 'Pro Edition Elite', priceMult: 1.4, desc: '🏆 TOP DE LINHA: Selecionado entre os mais bem avaliados por motociclistas profissionais.', intel: '[ALTA RECOMENDAÇÃO 🏆]' },
+                    { suffix: 'Promoção Imbatível', priceMult: 0.70, desc: '💰 PREÇO BAIXO: A oferta mais barata encontrada hoje com boa reputação do vendedor.', intel: '[OFERTA IMBATÍVEL 💰]' },
+                    { suffix: 'Custo-Benefício Real', priceMult: 0.85, desc: '🤝 EQUILÍBRIO: O melhor equilíbrio entre preço justo e satisfação do comprador.', intel: '[MELHOR CUSTO-BENEFÍCIO]' }
+                ];
 
-                console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
-
-                const { image, directUrl } = await researchProductAssets(keyword, platformId);
-                if (!image) {
-                    console.log('⚠️ Sem imagem, pulando...');
-                    continue;
-                }
-
-                const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
-
-                if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
-                console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
-
-                const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
-
-                const productRecord = {
-                    name: p.name,
-                    price: p.price,
-                    image: image,
-                    category: category.name,
-                    link: affiliateLink,
-                    description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
-                    discount: discountValue,
-                    source: 'Sales AI Agent',
-                    active: true
+                const pricesPerCategory = {
+                    'Equipamentos': { min: 250, max: 1800 },
+                    'Acessórios': { min: 50, max: 600 },
+                    'Peças': { min: 120, max: 1200 },
+                    'Manutenção': { min: 30, max: 150 },
+                    'Moda & Estilo': { min: 45, max: 250 },
+                    'Super Ofertas 🔥': { min: 40, max: 400 }
                 };
 
-                if (dryRun) {
-                    console.log('🧪 DRY RUN:', productRecord);
-                    platformStats[platformId]++;
-                    totalPublished++;
-                } else {
-                    try {
-                        const result = await supabaseInsert('products', productRecord, token);
-                        console.log(`✅ Publicado! ID: ${result.id}`);
+                const catPrice = pricesPerCategory[category.name] || { min: 100, max: 500 };
+                const basePriceNum = Math.floor(Math.random() * (catPrice.max - catPrice.min) + catPrice.min);
+
+                const trendingProducts = variants.map(v => ({
+                    name: `${keyword} ${v.suffix}`,
+                    price: `R$ ${(basePriceNum * v.priceMult).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                    description: `${v.desc} Ideal para sua jornada sobre duas rodas.`
+                }));
+
+                const platforms = Object.keys(AFFILIATE_CONFIG);
+
+                for (const p of trendingProducts) {
+                    if (totalPublished >= maxTotal) break;
+
+                    // Seleciona apenas plataformas que ainda não atingiram a meta
+                    const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
+                    if (availablePlatforms.length === 0) break;
+
+                    const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
+
+                    console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
+
+                    const { image, directUrl } = await researchProductAssets(keyword, platformId);
+                    if (!image) {
+                        console.log('⚠️ Sem imagem, pulando...');
+                        continue;
+                    }
+
+                    const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
+
+                    if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
+                    console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
+
+                    const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
+
+                    const productRecord = {
+                        name: p.name,
+                        price: p.price,
+                        image: image,
+                        category: category.name,
+                        link: affiliateLink,
+                        description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                        discount: discountValue,
+                        source: 'Sales AI Agent',
+                        active: true
+                    };
+
+                    if (dryRun) {
+                        console.log('🧪 DRY RUN:', productRecord);
                         platformStats[platformId]++;
                         totalPublished++;
-                    } catch (err) {
-                        console.error(`❌ Erro ao publicar: ${err.message}`);
+                    } else {
+                        try {
+                            const result = await supabaseInsert('products', productRecord, token);
+                            console.log(`✅ Publicado! ID: ${result.id}`);
+                            platformStats[platformId]++;
+                            totalPublished++;
+                        } catch (err) {
+                            console.error(`❌ Erro ao publicar: ${err.message}`);
+                        }
                     }
                 }
             }
         }
+
+        console.log(`\n✨ Finalizado! Total de publicações: ${totalPublished}`);
+        console.log('📊 Resumo por plataforma:', platformStats);
     }
 
-    console.log(`\n✨ Finalizado! Total de publicações: ${totalPublished}`);
-    console.log('📊 Resumo por plataforma:', platformStats);
-}
-
-main().catch(console.error);
+    main().catch(console.error);
