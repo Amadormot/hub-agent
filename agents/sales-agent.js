@@ -76,9 +76,12 @@ async function supabaseInsert(table, record, token) {
 }
 
 async function researchProductAssets(keywords, platformId) {
-    const query = encodeURIComponent(keywords + ' moto product');
-    const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1`;
     const domain = platformId === 'amazon' ? 'amazon.com.br' : 'mercadolivre.com.br';
+    const siteName = platformId === 'amazon' ? 'Amazon' : 'Mercado Livre';
+
+    // Adicionamos o nome do site na busca para forçar o Bing a trazer esse domínio nos metadados
+    const query = encodeURIComponent(`${keywords} ${siteName} moto product`);
+    const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1`;
 
     try {
         const res = await fetch(url, {
@@ -115,11 +118,11 @@ async function researchProductAssets(keywords, platformId) {
                     for (const u of potentialUrls) {
                         if (u && u.includes(domain)) {
                             // Check patterns
-                            if (platformId === 'amazon' && u.includes('/dp/')) {
+                            if (platformId === 'amazon' && (u.includes('/dp/') || u.includes('/gp/product/'))) {
                                 foundDirectUrl = u;
                                 break;
                             }
-                            if (platformId === 'mercado_livre' && (u.includes('MLB') || u.includes('/p/MLB'))) {
+                            if (platformId === 'mercado_livre' && (u.includes('MLB') || u.includes('/p/MLB') || u.includes('/p/'))) {
                                 foundDirectUrl = u;
                                 break;
                             }
