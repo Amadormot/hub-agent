@@ -245,8 +245,10 @@ async function main() {
                     continue;
                 }
 
-                if (directUrl) console.log(`🎯 Link Sniper Ativado: ${directUrl}`);
-                else console.log(`⚠️ Link direto não encontrado para "${keyword}", usando busca fallback.`);
+                const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
+
+                if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
+                console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
 
                 const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
 
@@ -255,7 +257,7 @@ async function main() {
                     price: p.price,
                     image: image,
                     category: category.name,
-                    link: generateAffiliateLink(keyword, platformId, directUrl),
+                    link: affiliateLink,
                     description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
                     discount: discountValue,
                     source: 'Sales AI Agent',
