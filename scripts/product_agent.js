@@ -46,7 +46,8 @@ const PRODUCT_CATEGORIES = [
     { name: 'Acessórios', keywords: ['Intercomunicador Ejeas V6 Pro', 'Suporte Celular Alumínio', 'Baú Bauleto Givi 45L', 'Cadeado Corrente Moto High Security', 'Antena Corta-Pipa Inox'] },
     { name: 'Peças', keywords: ['Pneu Metzeler Karoo Street', 'Kit Relação Vaz Gold', 'Pastilha Freio Cobreq Racing', 'Filtro Ar Lavável', 'Escapamento Esportivo Yoshimura'] },
     { name: 'Manutenção', keywords: ['Kit Limpeza Motul C1 C4', 'Graxa Branca Spray', 'Capa de Chuva Pantaneiro', 'Carregador Bateria Inteligente'] },
-    { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog'] }
+    { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog'] },
+    { name: 'Super Ofertas 🔥', keywords: ['Promoção Relâmpago Moto', 'Outlet Capacete', 'Oferta Luva Couro', 'Melhor Preço Intercomunicador', 'Queima de Estoque Jaqueta'] }
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -195,11 +196,12 @@ async function main() {
 
             console.log(`🔍 Buscando ofertas para: ${keyword}`);
 
-            // Variantes por keyword
+            // Variantes por keyword com inteligência de recomendação e preço
             const variants = [
-                { suffix: 'Original', priceMult: 1, desc: 'Qualidade original garantida para performance máxima.' },
-                { suffix: 'Pro Edition', priceMult: 1.4, desc: 'Versão de alta performance testada nas pistas.' },
-                { suffix: 'Custo-Benefício', priceMult: 0.85, desc: 'A melhor escolha para quem busca economia sem perder segurança.' }
+                { suffix: 'Original Loja Oficial', priceMult: 1, desc: '⭐ RECOMENDADO: Produto de Loja Oficial com máxima pontualidade e procedência garantida.', intel: '[LOJA OFICIAL ⭐]' },
+                { suffix: 'Pro Edition Elite', priceMult: 1.4, desc: '🏆 TOP DE LINHA: Selecionado entre os mais bem avaliados por motociclistas profissionais.', intel: '[ALTA RECOMENDAÇÃO 🏆]' },
+                { suffix: 'Promoção Imbatível', priceMult: 0.70, desc: '💰 PREÇO BAIXO: A oferta mais barata encontrada hoje com boa reputação do vendedor.', intel: '[OFERTA IMBATÍVEL 💰]' },
+                { suffix: 'Custo-Benefício Real', priceMult: 0.85, desc: '🤝 EQUILÍBRIO: O melhor equilíbrio entre preço justo e satisfação do comprador.', intel: '[MELHOR CUSTO-BENEFÍCIO]' }
             ];
 
             const pricesPerCategory = {
@@ -207,7 +209,8 @@ async function main() {
                 'Acessórios': { min: 50, max: 600 },
                 'Peças': { min: 120, max: 1200 },
                 'Manutenção': { min: 30, max: 150 },
-                'Moda & Estilo': { min: 45, max: 250 }
+                'Moda & Estilo': { min: 45, max: 250 },
+                'Super Ofertas 🔥': { min: 40, max: 400 }
             };
 
             const catPrice = pricesPerCategory[category.name] || { min: 100, max: 500 };
@@ -242,7 +245,7 @@ async function main() {
                     image: image,
                     category: category.name,
                     link: generateAffiliateLink(p.name, platformId, directUrl),
-                    description: `${p.description} Seleção exclusiva Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                    description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
                     discount: discountValue,
                     source: 'Sales AI Agent',
                     active: true
