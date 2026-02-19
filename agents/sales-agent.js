@@ -208,11 +208,9 @@ async function main() {
                     image: image,
                     category: category.name,
                     link: generateAffiliateLink(p.name, platformId),
-                    description: `${p.description} Seleção exclusiva Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
-                    discount: discountValue,
+                    description: `${discountValue ? `[OFERTA: ${discountValue}] ` : ''}${p.description} Seleção exclusiva Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
                     source: 'Sales AI Agent',
-                    active: true,
-                    created_at: new Date().toISOString()
+                    active: true
                 };
 
                 if (dryRun) {
