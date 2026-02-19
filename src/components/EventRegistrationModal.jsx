@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { X, Calendar, MapPin, Image as ImageIcon, Star, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PaymentModal from './PaymentModal';
+import { MapPicker } from './MapComponents';
 import { useNotification } from '../contexts/NotificationContext';
+import { compressImage } from '../utils/imageCompression';
 
 
-export default function EventRegistrationModal({ isOpen, onClose, onRegister, user }) {
+export default function EventRegistrationModal({ isOpen, onClose, onRegister, user, defaultPremium = false }) {
     const { notify } = useNotification();
     const [formData, setFormData] = useState({
         title: '',
@@ -13,11 +15,14 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
         endDate: '',
         startTime: '',
         endTime: '',
+        location: '',
         city: '',
-        state: 'SP',
+        state: '',
+        lat: null,
+        lng: null,
         description: '',
         image: '',
-        isPremium: false,
+        isPremium: defaultPremium,
         premiumDays: 7
     });
 
@@ -29,29 +34,6 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
     const PREMIUM_COST_PER_DAY = 1.00;
     const totalCost = formData.premiumDays * PREMIUM_COST_PER_DAY;
 
-    const BRAZIL_STATES = [
-        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-        "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-    ];
-
-    const [cities, setCities] = useState([]);
-    const [isLoadingCities, setIsLoadingCities] = useState(false);
-
-    useEffect(() => {
-        if (formData.state) {
-            setIsLoadingCities(true);
-            fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${formData.state}/municipios`)
-                .then(res => res.json())
-                .then(data => {
-                    const cityNames = data.map(city => city.nome).sort();
-                    setCities(cityNames);
-                    setFormData(prev => ({ ...prev, city: '' })); // Reset city when state changes
-                })
-                .catch(err => console.error("Failed to fetch cities", err))
-                .finally(() => setIsLoadingCities(false));
-        }
-    }, [formData.state]);
-
     useEffect(() => {
         if (isOpen) {
             setStep(1);
@@ -61,17 +43,20 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
                 endDate: '',
                 startTime: '',
                 endTime: '',
+                location: '',
                 city: '',
-                state: 'SP',
+                state: '',
+                lat: null,
+                lng: null,
                 description: '',
                 image: '',
-                isPremium: false,
+                isPremium: defaultPremium,
                 premiumDays: 7
             });
             setPaymentCompleted(false);
             setIsPaymentOpen(false);
         }
-    }, [isOpen]);
+    }, [isOpen, defaultPremium]);
 
     const handleChange = (e) => {
         const { name, value, type, checked, files } = e.target;
@@ -79,15 +64,15 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
         if (type === 'file') {
             const file = files[0];
             if (file) {
-                if (file.size > 2 * 1024 * 1024) { // 2MB limit
-                    notify("A imagem deve ter no máximo 2MB.", "warning");
-                    return;
-                }
                 const reader = new FileReader();
-                reader.onloadend = () => {
-                    // Basic safeguard: if string is massive, maybe truncate or warn?
-                    // For now, trusting the 2MB check.
-                    setFormData(prev => ({ ...prev, [name]: reader.result }));
+                reader.onloadend = async () => {
+                    try {
+                        const compressed = await compressImage(file, 1920, 0.8);
+                        setFormData(prev => ({ ...prev, [name]: compressed }));
+                    } catch (err) {
+                        console.error("Compression error:", err);
+                        setFormData(prev => ({ ...prev, [name]: reader.result }));
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -98,6 +83,18 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+
+    const handleLocationSelected = ({ lat, lng, name, city, state }) => {
+        setFormData(prev => ({
+            ...prev,
+            location: name,
+            city: city || name.split(',')[0],
+            state: state || '',
+            lat,
+            lng
+        }));
+        notify(`Local selecionado: ${city || name.split(',')[0]}`, "success");
     };
 
     const finalizeRegistration = () => {
@@ -115,11 +112,6 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
             ...formData,
             date: formattedDate, // Display date (e.g., "12 MAR")
             time: displayTime,
-            startDate: formData.startDate,
-            endDate: formData.endDate || formData.startDate,
-            startTime: formData.startTime,
-            endTime: formData.endTime,
-            location: `${formData.city} - ${formData.state}`,
             id: Date.now(),
             premium: formData.isPremium,
             premiumDays: formData.isPremium ? formData.premiumDays : 0,
@@ -153,7 +145,6 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
     };
 
     const handlePaymentSuccess = () => {
-        console.log("Payment success triggered");
         setPaymentCompleted(true);
         finalizeRegistration();
     };
@@ -169,12 +160,12 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
 
     return (
         <>
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-background-secondary w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                    className="bg-background-secondary w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] supports-[height:100dvh]:max-h-[85dvh]"
                 >
                     <header className="p-4 border-b border-white/10 flex justify-between items-center bg-zinc-900">
                         <h2 className="text-lg font-black text-white flex items-center gap-2">
@@ -208,90 +199,81 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-4">
-                                        <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 gap-3">
                                             <div>
-                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Data Início</label>
-                                                <input
-                                                    type="date"
-                                                    name="startDate"
-                                                    value={formData.startDate}
-                                                    onChange={handleChange}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors accent-primary"
-                                                    required
-                                                />
+                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Início</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input
+                                                        type="date"
+                                                        name="startDate"
+                                                        value={formData.startDate}
+                                                        onChange={handleChange}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-[11px] text-white focus:border-primary focus:outline-none accent-primary"
+                                                        required
+                                                    />
+                                                    <input
+                                                        type="time"
+                                                        name="startTime"
+                                                        value={formData.startTime}
+                                                        onChange={handleChange}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-[11px] text-white focus:border-primary focus:outline-none accent-primary"
+                                                        required
+                                                    />
+                                                </div>
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Data Fim</label>
-                                                <input
-                                                    type="date"
-                                                    name="endDate"
-                                                    value={formData.endDate}
-                                                    min={formData.startDate} // Prevent end date before start date
-                                                    onChange={handleChange}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors accent-primary"
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Hora Início</label>
-                                                <input
-                                                    type="time"
-                                                    name="startTime"
-                                                    value={formData.startTime}
-                                                    onChange={handleChange}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors accent-primary"
-                                                    required
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Hora Fim</label>
-                                                <input
-                                                    type="time"
-                                                    name="endTime"
-                                                    value={formData.endTime}
-                                                    min={formData.startTime}
-                                                    onChange={handleChange}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors accent-primary"
-                                                    required
-                                                />
+                                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Término</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input
+                                                        type="date"
+                                                        name="endDate"
+                                                        value={formData.endDate}
+                                                        min={formData.startDate}
+                                                        onChange={handleChange}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-[11px] text-white focus:border-primary focus:outline-none accent-primary"
+                                                    />
+                                                    <input
+                                                        type="time"
+                                                        name="endTime"
+                                                        value={formData.endTime}
+                                                        onChange={handleChange}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-lg p-2 text-[11px] text-white focus:border-primary focus:outline-none accent-primary"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Local</label>
-                                        <div className="grid grid-cols-[80px_1fr] gap-2">
-                                            <select
-                                                name="state"
-                                                value={formData.state}
-                                                onChange={handleChange}
-                                                className="bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors appearance-none text-center cursor-pointer"
-                                                required
-                                            >
-                                                {BRAZIL_STATES.map(uf => (
-                                                    <option key={uf} value={uf} className="bg-gray-900">{uf}</option>
-                                                ))}
-                                            </select>
-                                            <div className="relative">
-                                                <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                                                <select
-                                                    name="city"
-                                                    value={formData.city}
-                                                    onChange={handleChange}
-                                                    disabled={isLoadingCities}
-                                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 pl-9 text-white focus:border-primary focus:outline-none transition-colors appearance-none cursor-pointer disabled:opacity-50"
-                                                    required
-                                                >
-                                                    <option value="" className="bg-gray-900">Selecione a Cidade</option>
-                                                    {cities.map(city => (
-                                                        <option key={city} value={city} className="bg-gray-900">{city}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+
+                                    <div className="flex flex-col gap-2">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Confirmação de Local</label>
+                                        <div className={`flex-1 flex flex-col justify-center p-3 rounded-lg border border-dashed transition-colors ${formData.lat ? 'bg-primary/5 border-primary/50' : 'bg-black/20 border-white/10'}`}>
+                                            {formData.lat ? (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-black text-white truncate">{formData.city}</p>
+                                                    <p className="text-[10px] text-gray-400 line-clamp-2 leading-tight">{formData.location}</p>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center space-y-2 py-2">
+                                                    <MapPin className="mx-auto text-gray-500 opacity-50" size={20} />
+                                                    <p className="text-[10px] text-gray-500 italic">Toque no mapa ou use a busca para marcar o local.</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase flex justify-between">
+                                        <span>Mapa Interativo</span>
+                                        {formData.lat && <span className="text-primary flex items-center gap-1"><CheckCircle size={10} /> Local Definido</span>}
+                                    </label>
+                                    <MapPicker
+                                        initialLat={formData.lat}
+                                        initialLng={formData.lng}
+                                        stops={formData.lat ? [formData] : []}
+                                        onLocationSelected={handleLocationSelected}
+                                    />
                                 </div>
 
                                 <div>
@@ -414,13 +396,13 @@ export default function EventRegistrationModal({ isOpen, onClose, onRegister, us
                                 Voltar
                             </button>
                         ) : (
-                            <div></div>
+                            <div />
                         )}
 
                         {step === 1 ? (
                             <button
                                 onClick={() => setStep(2)}
-                                disabled={!formData.title || !formData.startDate || !formData.endDate || !formData.startTime || !formData.endTime || !formData.city}
+                                disabled={!formData.title || !formData.startDate || !formData.startTime || !formData.lat}
                                 className="bg-white text-black px-6 py-2 rounded-lg font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Continuar

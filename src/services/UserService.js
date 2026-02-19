@@ -52,6 +52,7 @@ export const UserService = {
             const { data, error } = await supabase
                 .from('users')
                 .insert([{
+                    id: userData.id,
                     email: userData.email,
                     name: userData.name,
                     avatar: userData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=EA580C&color=fff&size=256`,
@@ -60,7 +61,7 @@ export const UserService = {
                     xp: 0,
                     location: userData.location || null,
                     details: userData.details || {},
-                    is_admin: userData.email === 'admin@motohub.com.br'
+                    is_admin: userData.email === 'agm_jr@outlook.com'
                 }])
                 .select()
                 .single();

@@ -12,8 +12,8 @@ export default function Garagem() {
 
     const categories = ['Todos', 'Equipamentos', 'Peças', 'Acessórios', 'Manutenção'];
 
-    // Merge Mock Products with Automation Affiliates
-    const allItems = [...productsData, ...(affiliates || [])];
+    // Merge Context Products with Automation Affiliates
+    const allItems = [...products, ...(affiliates || [])];
 
     const filteredProducts = allItems.filter(product => {
         const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
@@ -89,9 +89,17 @@ export default function Garagem() {
                             </div>
 
                             <div className="p-3 flex flex-col flex-1">
-                                <h3 className="font-bold text-sm text-white mb-1 line-clamp-2 flex-grow">{product.name}</h3>
-                                <div className="mt-2">
-                                    <span className="block text-xs text-gray-500 mb-1">A partir de</span>
+                                <h3 className="font-bold text-sm text-white mb-1 line-clamp-1 flex-grow">{product.name}</h3>
+
+                                {/* Brief Description */}
+                                {product.description && (
+                                    <p className="text-[10px] text-gray-400 leading-tight line-clamp-2 mb-2">
+                                        {product.description}
+                                    </p>
+                                )}
+
+                                <div className="mt-auto">
+                                    <span className="block text-[10px] text-gray-500 mb-0.5">A partir de</span>
                                     <div className="flex justify-between items-end flex-wrap">
                                         <span className="text-lg font-black text-primary">{product.price}</span>
                                         {product.oldPrice && (

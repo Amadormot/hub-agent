@@ -22,7 +22,7 @@ export default function NewsManager() {
         summary: '',
         content: '',
         image: '',
-        source: 'Moto Hub Admin',
+        source: 'Jornada Biker Admin',
         url: '',
         published: true
     });
@@ -50,7 +50,7 @@ export default function NewsManager() {
             summary: '',
             content: '',
             image: '',
-            source: 'Moto Hub Admin',
+            source: 'Jornada Biker Admin',
             url: '',
             published: true
         });

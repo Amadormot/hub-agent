@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,17 +14,162 @@ import {
     Search,
     Plus,
     BarChart3,
-    ArrowUpRight
+    ArrowUpRight,
+    QrCode,
+    Copy,
+    Upload,
+    X,
+    Shield
 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { useData } from '../contexts/DataContext';
 import { productsData } from '../data/mockData';
 import NewsManager from '../components/NewsManager';
+import ProductManager from '../components/ProductManager';
+import { compressImage } from '../utils/imageCompression';
+import { useNotification } from '../contexts/NotificationContext';
+
+function AdminSettings() {
+    const { user, updateProfile } = useUser();
+    const { notify } = useNotification();
+    const [pixKey, setPixKey] = useState(user?.pixKey || '');
+    const [pixQR, setPixQR] = useState(user?.pixQR || '');
+    const [isSaving, setIsSaving] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            try {
+                const compressedDataUrl = await compressImage(file, 1024, 0.8);
+                setPixQR(compressedDataUrl);
+            } catch (error) {
+                console.error("Error compressing image:", error);
+                const reader = new FileReader();
+                reader.onloadend = () => setPixQR(reader.result);
+                reader.readAsDataURL(file);
+            }
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await updateProfile({ pixKey, pixQR });
+            notify("Configurações salvas com sucesso!", "success");
+        } catch (error) {
+            notify("Erro ao salvar configurações", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="max-w-2xl mx-auto space-y-8 py-4">
+            <div className="bg-white/5 rounded-3xl p-8 border border-white/5 space-y-6">
+                <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary">
+                        <QrCode size={24} />
+                    </div>
+                    <div>
+                        <h3 className="text-white font-black text-lg uppercase tracking-tight">Configurações de Recebimento</h3>
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Defina como você receberá os pagamentos de patrocinadores</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Chave PIX</label>
+                        <div className="relative group">
+                            <input
+                                type="text"
+                                value={pixKey}
+                                onChange={(e) => setPixKey(e.target.value)}
+                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-primary transition-all font-bold text-sm"
+                                placeholder="E-mail, CPF, CNPJ ou Celular"
+                            />
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-primary opacity-50">
+                                <Shield size={20} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">QR Code PIX (Opcional)</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div
+                                className="aspect-square bg-black/40 border-2 border-dashed border-white/10 rounded-3xl flex flex-col items-center justify-center gap-4 cursor-pointer hover:border-primary/50 transition-all group overflow-hidden relative"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {pixQR ? (
+                                    <>
+                                        <img src={pixQR} className="w-full h-full object-contain bg-white" alt="PIX QR Code" />
+                                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2">
+                                            <Upload size={24} />
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Trocar Imagem</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center text-gray-600 group-hover:text-primary transition-colors">
+                                            <Upload size={32} />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-xs font-black text-white uppercase tracking-wider">Upload QR Code</p>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">PNG ou JPG</p>
+                                        </div>
+                                    </>
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                />
+                            </div>
+
+                            <div className="flex flex-col justify-center space-y-4">
+                                <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+                                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Shield size={12} /> Segurança
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 font-medium leading-relaxed">
+                                        Esses dados serão exibidos apenas para usuários que solicitarem destaque (Premium) em seus eventos.
+                                    </p>
+                                </div>
+
+                                {pixQR && (
+                                    <button
+                                        onClick={() => setPixQR('')}
+                                        className="text-red-500 text-[10px] font-black uppercase tracking-widest hover:text-red-400 transition-colors flex items-center gap-2"
+                                    >
+                                        <X size={14} /> Remover QR Code
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="pt-6 border-t border-white/5">
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="w-full bg-primary hover:bg-orange-600 disabled:opacity-50 text-black font-black py-4 rounded-2xl transition-all shadow-xl shadow-primary/20 uppercase tracking-[0.2em] text-xs active:scale-95"
+                    >
+                        {isSaving ? 'Salvando...' : 'Salvar Configurações'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function AdminDashboard() {
     const { user } = useUser();
-    const { routes, events, sales } = useData();
+    const { routes, events, sales, confirmPayment } = useData();
     const [activeTab, setActiveTab] = useState('sales');
     const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
@@ -58,6 +203,7 @@ export default function AdminDashboard() {
         { id: 'news', label: 'Notícias', icon: MessageSquare },
         { id: 'events', label: 'Eventos', icon: Calendar },
         { id: 'store', label: 'Loja Overview', icon: ShoppingBag },
+        { id: 'config', label: 'Configurações', icon: LayoutDashboard },
     ];
 
     return (
@@ -244,32 +390,61 @@ export default function AdminDashboard() {
                                             </div>
 
                                             {/* Transaction List */}
-                                            <div className="space-y-2">
-                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Últimas Transações</h4>
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Últimas Transações</h4>
+                                                    <div className="flex gap-2">
+                                                        <span className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">
+                                                            Concluído: {sales.filter(s => s.status === 'completed' || !s.status).length}
+                                                        </span>
+                                                        <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">
+                                                            Pendente: {sales.filter(s => s.status === 'pending').length}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
                                                 {sales.length === 0 ? (
                                                     <div className="text-center py-8 text-gray-500 border border-dashed border-white/10 rounded-xl">
                                                         <ShoppingBag size={32} className="mx-auto mb-2 opacity-20" />
                                                         <p className="text-xs font-bold">Sem dados</p>
                                                     </div>
                                                 ) : (
-                                                    sales.map((sale) => (
-                                                        <div key={sale.id} className="bg-white/5 p-4 rounded-xl flex items-center justify-between border border-white/5 hover:border-green-500/30 transition-all">
+                                                    // Sort pending first
+                                                    [...sales].sort((a, b) => (a.status === 'pending' ? -1 : 1)).map((sale) => (
+                                                        <div key={sale.id} className={clsx(
+                                                            "bg-white/5 p-4 rounded-xl flex items-center justify-between border transition-all",
+                                                            sale.status === 'pending' ? 'border-yellow-500/30 ring-1 ring-yellow-500/10' : 'border-white/5 hover:border-green-500/30'
+                                                        )}>
                                                             <div className="flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-green-500">
-                                                                    <CheckCircle size={20} />
+                                                                <div className={clsx(
+                                                                    "w-10 h-10 rounded-lg flex items-center justify-center",
+                                                                    sale.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-green-500/20 text-green-500'
+                                                                )}>
+                                                                    {sale.status === 'pending' ? <Clock size={20} /> : <CheckCircle size={20} />}
                                                                 </div>
                                                                 <div>
                                                                     <h4 className="font-bold text-white text-sm">{sale.productName}</h4>
                                                                     <p className="text-xs text-gray-500">{sale.date}</p>
                                                                 </div>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <div className="font-black text-green-500 text-sm">
-                                                                    + R$ {sale.commission.replace('.', ',')}
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="text-right">
+                                                                    <div className={clsx("font-black text-sm", sale.status === 'pending' ? 'text-white' : 'text-green-500')}>
+                                                                        {sale.status === 'pending' ? '' : '+ '} R$ {sale.commission.replace('.', ',')}
+                                                                    </div>
+                                                                    <div className="text-[10px] text-gray-400 uppercase font-bold">
+                                                                        {sale.status === 'pending' ? 'Aguardando PIX' : (sale.type === 'Destaque Evento' ? 'Receita Total' : 'Comissão (10%)')}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-[10px] text-gray-400 uppercase font-bold">
-                                                                    {sale.type === 'Destaque Evento' ? 'Receita Total' : 'Comissão (10%)'}
-                                                                </div>
+
+                                                                {sale.status === 'pending' && (
+                                                                    <button
+                                                                        onClick={() => confirmPayment(sale.id)}
+                                                                        className="bg-primary text-black text-[10px] font-black uppercase px-3 py-2 rounded-lg hover:bg-orange-500 transition-all shadow-lg shadow-primary/20"
+                                                                    >
+                                                                        Confirmar
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))
@@ -283,25 +458,15 @@ export default function AdminDashboard() {
                                     )}
 
                                     {activeTab === 'store' && (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {productsData.slice(0, 4).map((product) => (
-                                                <div key={product.id} className="bg-white/5 p-3 rounded-2xl flex items-center gap-4">
-                                                    <img src={product.image} className="w-14 h-14 rounded-xl object-cover" />
-                                                    <div className="flex-1">
-                                                        <h4 className="text-sm font-bold text-white">{product.name}</h4>
-                                                        <p className="text-primary text-xs font-black">{product.price}</p>
-                                                    </div>
-                                                    <button className="p-2 hover:bg-white/10 rounded-lg text-gray-500"><Plus size={16} /></button>
-                                                </div>
-                                            ))}
-                                            <button className="border border-dashed border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-gray-500 hover:text-primary hover:border-primary transition-all group">
-                                                <Plus size={24} className="mb-2 group-hover:scale-110 transition-transform" />
-                                                <span className="text-[10px] font-black uppercase">Novo Item</span>
-                                            </button>
-                                        </div>
+                                        <ProductManager />
                                     )}
 
-                                    {activeTab !== 'store' && activeTab !== 'sales' && activeTab !== 'news' && (
+                                    {activeTab === 'config' && (
+                                        <AdminSettings />
+                                    )}
+
+
+                                    {activeTab !== 'store' && activeTab !== 'sales' && activeTab !== 'news' && activeTab !== 'config' && (
                                         <div className="flex flex-col items-center justify-center py-20 text-gray-600">
                                             <Clock size={48} className="mb-4 opacity-20" />
                                             <p className="text-sm font-bold uppercase tracking-widest">Selecione uma categoria</p>
@@ -313,6 +478,7 @@ export default function AdminDashboard() {
                     </div>
                 </main>
             </div>
+
 
         </div>
     );

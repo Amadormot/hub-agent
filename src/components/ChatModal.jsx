@@ -36,7 +36,7 @@ export default function ChatModal({ isOpen, onClose, recipient }) {
         if (!file) return;
 
         try {
-            const compressedImage = await compressImage(file, 1600, 0.85);
+            const compressedImage = await compressImage(file, 1920, 0.8);
             sendMessage(recipient, '', compressedImage);
         } catch (error) {
             console.error("Erro ao comprimir imagem:", error);
@@ -51,7 +51,7 @@ export default function ChatModal({ isOpen, onClose, recipient }) {
         if (!file) return;
 
         try {
-            const compressedImage = await compressImage(file, 1600, 0.85);
+            const compressedImage = await compressImage(file, 1920, 0.8);
             sendMessage(recipient, '', compressedImage);
         } catch (error) {
             console.error("Erro ao processar captura:", error);

@@ -24,9 +24,10 @@ export default function NotificationToast({ message, type, onClose }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
             className={clsx(
-                "pointer-events-auto flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md shadow-2xl",
+                "pointer-events-auto cursor-pointer flex items-center gap-3 p-4 rounded-2xl border backdrop-blur-md shadow-xl active:scale-95 transition-all",
                 colors[type] || colors.info
             )}
+            onClick={onClose}
         >
             <div className="flex-shrink-0">
                 {icons[type] || icons.info}

@@ -133,13 +133,13 @@ export const eventsData = [
         date: '05 ABR',
         startDate: '2026-04-05',
         endDate: '2026-04-05',
-        location: 'Brasília, DF',
+        location: 'Sorocaba, SP',
         premium: false,
-        description: 'Reunião anual dos motoclubes brasileiros na capital federal. Um evento histórico.',
+        description: 'Reunião anual dos motoclubes brasileiros. Agora em Sorocaba para testes.',
         image: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=400&auto=format&fit=crop',
         likes: 1200,
-        latitude: -15.7975,
-        longitude: -47.8919,
+        latitude: -23.5015,
+        longitude: -47.4521,
         createdBy: {
             id: 'u2',
             name: 'Fernanda Moto',
@@ -152,13 +152,76 @@ export const eventsData = [
 ];
 
 export const productsData = [
-    { id: 1, name: 'Capacete LS2 Stream', category: 'Equipamentos', price: 'R$ 899,00', image: 'https://images.unsplash.com/photo-1557803175-298328003610?q=80&w=400&auto=format&fit=crop', link: '#' },
-    { id: 2, name: 'Jaqueta Couro Moto', category: 'Equipamentos', price: 'R$ 1.250,00', image: 'https://images.unsplash.com/photo-1560243563-062bfc001d68?q=80&w=400&auto=format&fit=crop', link: '#' },
-    { id: 3, name: 'Luva X11 Black', category: 'Equipamentos', price: 'R$ 180,00', image: 'https://images.unsplash.com/photo-1625906841797-768a35560b37?q=80&w=400&auto=format&fit=crop', link: '#' },
-    { id: 4, name: 'Kit Relação Vaz', category: 'Peças', price: 'R$ 250,00', image: 'https://images.unsplash.com/photo-1616423668352-7d121bc81d6d?q=80&w=400&auto=format&fit=crop', link: '#' },
-    { id: 5, name: 'Óleo Motul 5100', category: 'Manutenção', price: 'R$ 65,00', image: 'https://images.unsplash.com/photo-1635773173546-5ba257018803?q=80&w=400&auto=format&fit=crop', link: '#' },
-    { id: 6, name: 'Suporte Celular', category: 'Acessórios', price: 'R$ 45,00', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400&auto=format&fit=crop', link: '#' },
-    { id: 7, name: 'Baú 45 Litros', category: 'Acessórios', price: 'R$ 320,00', image: 'https://images.unsplash.com/photo-1591632832822-7f91722881cf?q=80&w=400&auto=format&fit=crop', link: '#' },
+    {
+        id: 1,
+        name: 'Capacete LS2 Stream',
+        category: 'Equipamentos',
+        price: 'R$ 899,00',
+        image: 'https://images.unsplash.com/photo-1557803175-298328003610?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Capacete+LS2+Stream',
+        description: 'Capacete integral com ótima ventilação e viseira solar interna.',
+        specs: ['Peso: 1550g', 'Viseira Solar', 'Forro Removível']
+    },
+    {
+        id: 2,
+        name: 'Jaqueta Couro Moto',
+        category: 'Equipamentos',
+        price: 'R$ 1.250,00',
+        image: 'https://images.unsplash.com/photo-1560243563-062bfc001d68?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Jaqueta+Couro+Moto',
+        description: 'Jaqueta de couro legítimo com proteções embutidas nos ombros e cotovelos.',
+        specs: ['Couro Bovino', 'Proteção CE', 'Resistente à abrasão']
+    },
+    {
+        id: 3,
+        name: 'Luva X11 Black',
+        category: 'Equipamentos',
+        price: 'R$ 180,00',
+        image: 'https://images.unsplash.com/photo-1625906841797-768a35560b37?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Luva+X11+Black',
+        description: 'Luvas leves e confortáveis para o dia a dia urbano.',
+        specs: ['Tecido Arejado', 'Touchscreen', 'Refletivos']
+    },
+    {
+        id: 4,
+        name: 'Kit Relação Vaz',
+        category: 'Peças',
+        price: 'R$ 250,00',
+        image: 'https://images.unsplash.com/photo-1616423668352-7d121bc81d6d?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Kit+Relação+Vaz',
+        description: 'Kit de transmissão completo de alta durabilidade (Corrente, Coroa e Pinhão).',
+        specs: ['Aço 1045', 'Com Retentor', 'Alta Durabilidade']
+    },
+    {
+        id: 5,
+        name: 'Óleo Motul 5100',
+        category: 'Manutenção',
+        price: 'R$ 65,00',
+        image: 'https://images.unsplash.com/photo-1635773173546-5ba257018803?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Óleo+Motul+5100',
+        description: 'Óleo semissintético para motores 4 tempos com tecnologia Ester.',
+        specs: ['Viscosidade 10W40', 'API SL', 'JASO MA2']
+    },
+    {
+        id: 6,
+        name: 'Suporte Celular',
+        category: 'Acessórios',
+        price: 'R$ 45,00',
+        image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Suporte+Celular+Moto',
+        description: 'Suporte universal com carregador USB integrado e fixação firme.',
+        specs: ['Carregador USB', 'A prova d\'água', 'Rotação 360°']
+    },
+    {
+        id: 7,
+        name: 'Baú 45 Litros',
+        category: 'Acessórios',
+        price: 'R$ 320,00',
+        image: 'https://images.unsplash.com/photo-1591632832822-7f91722881cf?q=80&w=400&auto=format&fit=crop',
+        link: 'https://www.google.com/search?q=Baú+45+Litros+Moto',
+        description: 'Baú espaçoso para dois capacetes, com sistema de engate rápido.',
+        specs: ['Capacidade 45L', 'Lente Vermelha', 'Chave Reserva']
+    },
 ];
 
 export const mockUsers = [

@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Polyline, Circle } from 'react-leaflet';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
-import { X, Flag } from 'lucide-react';
+import { X, Flag, Search, MapPin, Loader2 } from 'lucide-react';
 
 // Fix for default marker icon in React-Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -40,7 +40,9 @@ const endIcon = new L.Icon({
 function RecenterAutomatically({ lat, lng }) {
     const map = useMap();
     useEffect(() => {
-        map.setView([lat, lng]);
+        if (lat && lng) {
+            map.setView([lat, lng], map.getZoom() < 10 ? 13 : map.getZoom());
+        }
     }, [lat, lng, map]);
     return null;
 }
@@ -117,8 +119,8 @@ export function RouteMap({ latitude, longitude, popupText }) {
                 style={{ height: '100%', width: '100%' }}
             >
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+                    url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
                 />
                 <Marker position={[latitude, longitude]}>
                     <Popup>
@@ -133,32 +135,35 @@ export function RouteMap({ latitude, longitude, popupText }) {
 
 // Internal component to handle multiple external search queries sequentially
 function BatchSearchHandler({ queries, onResultsFound }) {
-    // queries is array of strings: ["City, State", "City, State", ...]
-    // onResultsFound is callback with array of coords: [{lat, lng}, null, {lat, lng}] based on index
-
     useEffect(() => {
         const fetchAll = async () => {
-            if (!queries || queries.length === 0) return;
-
-            // We need to map undefined/empty queries to null immediately to preserve index
-            const params = queries.map(q => {
-                if (!q || q.length < 5) return null;
-                return q;
-            });
-
-            // If all are null, return empty
-            if (params.every(p => p === null)) {
-                onResultsFound(Array(params.length).fill(null));
+            if (!queries || queries.length === 0) {
+                onResultsFound([]);
                 return;
             }
 
-            const results = await Promise.all(params.map(async (q) => {
-                if (!q) return null;
+            const results = await Promise.all(queries.map(async (q) => {
+                // If it's an object with coordinates, use them directly
+                if (typeof q === 'object' && q !== null && q.lat && q.lng) {
+                    return { lat: parseFloat(q.lat), lng: parseFloat(q.lng) };
+                }
+
+                // If it's a string that looks like coords "lat, lng"
+                if (typeof q === 'string' && q.includes(',')) {
+                    const parts = q.split(',').map(p => p.trim());
+                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                        return { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) };
+                    }
+                }
+
+                if (!q || q.length < 3) return null;
+
                 try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+                    const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`);
                     const data = await response.json();
-                    if (data && data.length > 0) {
-                        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                    if (data && data.features && data.features.length > 0) {
+                        const feature = data.features[0];
+                        return { lat: feature.geometry.coordinates[1], lng: feature.geometry.coordinates[0] };
                     }
                 } catch (e) {
                     console.error("Geocoding error", e);
@@ -168,16 +173,164 @@ function BatchSearchHandler({ queries, onResultsFound }) {
             onResultsFound(results);
         };
 
-        const timeout = setTimeout(fetchAll, 1000); // Debounce
+        const timeout = setTimeout(fetchAll, 500); // Shorter debounce for better feel
         return () => clearTimeout(timeout);
     }, [JSON.stringify(queries)]); // Trigger when queries array content changes
 
     return null;
 }
 
-export function MapPicker({ initialLat, initialLng, stops, onRouteDetailsCalculated }) {
+// Click Handler
+function MapClickHandler({ onMapClick }) {
+    useMapEvents({
+        click: async (e) => {
+            const { lat, lng } = e.latlng;
+            try {
+                // Reverse geocode using Photon (much faster)
+                const response = await fetch(`https://photon.komoot.io/reverse?lon=${lng}&lat=${lat}`);
+                const data = await response.json();
+
+                if (data && data.features && data.features.length > 0) {
+                    const props = data.features[0].properties;
+                    const displayName = [props.name, props.city, props.state].filter(Boolean).join(', ') || "Local selecionado";
+                    const city = props.city || props.town || props.village || "";
+                    const state = props.state || "";
+                    onMapClick({ lat, lng, name: displayName, city, state });
+                } else {
+                    onMapClick({ lat, lng, name: "Ponto no mapa" });
+                }
+            } catch (err) {
+                onMapClick({ lat, lng, name: "Ponto no mapa" });
+            }
+        },
+    });
+    return null;
+}
+
+// Locate Me Button Component
+function LocateMeButton({ onLocationFound }) {
+    const map = useMap();
+    const handleLocate = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        map.locate({ setView: true, maxZoom: 15 });
+    };
+
+    useMapEvents({
+        locationfound(e) {
+            const { lat, lng } = e.latlng;
+            // Fetch address details for the found location
+            fetch(`https://photon.komoot.io/reverse?lon=${lng}&lat=${lat}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.features && data.features.length > 0) {
+                        const props = data.features[0].properties;
+                        const displayName = [props.name, props.city, props.state].filter(Boolean).join(', ') || "Sua localização";
+                        const city = props.city || props.town || props.village || "";
+                        const state = props.state || "";
+                        onLocationFound({ lat, lng, name: displayName, city, state });
+                    } else {
+                        onLocationFound({ lat, lng, name: "Minha localização" });
+                    }
+                })
+                .catch(() => {
+                    onLocationFound({ lat, lng, name: "Minha localização" });
+                });
+        },
+    });
+
+    return (
+        <div className="leaflet-bottom leaflet-right mb-4 mr-4">
+            <div className="leaflet-control">
+                <button
+                    type="button"
+                    onClick={handleLocate}
+                    className="bg-white p-2 rounded-full shadow-lg hover:bg-gray-100 flex items-center justify-center border-2 border-primary/20 transition-all active:scale-90"
+                    title="Minha Localização"
+                    style={{ width: '42px', height: '42px', cursor: 'pointer' }}
+                >
+                    <MapPin size={22} className="text-primary" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+export function MapPicker({ initialLat, initialLng, stops, onRouteDetailsCalculated, onLocationSelected }) {
     // stops is array of address strings passed from parent
     const [waypoints, setWaypoints] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState([]);
+    const [manualCenter, setManualCenter] = useState(null);
+
+    // Sync manualCenter with initial coordinates whenever they change from parent
+    useEffect(() => {
+        if (initialLat && initialLng) {
+            setManualCenter([initialLat, initialLng]);
+        }
+    }, [initialLat, initialLng]);
+
+    const handleSearch = async (e) => {
+        if (e) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+        }
+        if (!searchQuery.trim()) return;
+
+        setIsSearching(true);
+        try {
+            const response = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(searchQuery)}&limit=8`);
+            const data = await response.json();
+            if (data && data.features && data.features.length > 0) {
+                // Photon format -> Nominatim compatibility
+                const mappedResults = data.features.map(f => ({
+                    lat: f.geometry.coordinates[1],
+                    lon: f.geometry.coordinates[0],
+                    display_name: [f.properties.name, f.properties.city, f.properties.state, f.properties.country].filter(Boolean).join(', '),
+                    type: f.properties.type || f.properties.osm_value || 'local',
+                    address: {
+                        city: f.properties.city,
+                        state: f.properties.state,
+                        country: f.properties.country
+                    }
+                }));
+                setSearchResults(mappedResults);
+            } else {
+                setSearchResults([]);
+            }
+        } catch (err) {
+            console.error("Search error:", err);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const selectSearchResult = (result) => {
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        const displayName = result.display_name;
+
+        // Extract city/state from Nominatim's address object
+        const addr = result.address || {};
+        const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || "";
+        const state = addr.state_code || addr.state || "";
+
+        setManualCenter([lat, lng]);
+        if (onLocationSelected) {
+            onLocationSelected({ lat, lng, name: displayName, city, state });
+        }
+        setSearchResults([]);
+        setSearchQuery('');
+    };
+
+    const handleMapClick = (data) => {
+        setManualCenter([data.lat, data.lng]);
+        if (onLocationSelected) {
+            onLocationSelected(data);
+        }
+    };
 
     // Default center (Brazil center roughly)
     const defaultCenter = initialLat && initialLng
@@ -186,64 +339,124 @@ export function MapPicker({ initialLat, initialLng, stops, onRouteDetailsCalcula
     const defaultZoom = initialLat && initialLng ? 13 : 4;
 
     return (
-        <div className="h-64 w-full rounded-lg overflow-hidden border border-white/20 relative z-0">
-            <MapContainer
-                center={defaultCenter}
-                zoom={defaultZoom}
-                scrollWheelZoom={true}
-                className="h-full w-full"
-                style={{ height: '100%', width: '100%' }}
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
+        <div className="space-y-3">
+            {/* Search Overlay UI (Simulated inside the relative container) */}
+            <div className="relative">
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleSearch(e);
+                                }
+                            }}
+                            placeholder="Buscar local, bar, posto..."
+                            className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:border-primary focus:outline-none placeholder:text-gray-500"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-primary animate-spin" size={16} />}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleSearch}
+                        disabled={isSearching || !searchQuery.trim()}
+                        className="bg-primary text-black px-4 py-2 rounded-lg font-bold text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    >
+                        Buscar
+                    </button>
+                </div>
 
-                {/* Batch Geocoder */}
-                <BatchSearchHandler
-                    queries={stops}
-                    onResultsFound={setWaypoints}
-                />
-
-                {/* Draw Markers for all found waypoints */}
-                {waypoints.map((wp, index) => {
-                    if (!wp) return null;
-                    const isStart = index === 0;
-                    const isEnd = index === waypoints.length - 1;
-
-                    let markerIcon = DefaultIcon;
-                    let popupText = `Parada ${index + 1}`;
-
-                    if (isStart) {
-                        markerIcon = startIcon;
-                        popupText = "Origem";
-                    } else if (isEnd) {
-                        markerIcon = endIcon;
-                        popupText = "Destino";
-                    }
-
-                    return (
-                        <Marker key={`wp-${index}`} position={[wp.lat, wp.lng]} icon={markerIcon}>
-                            <Popup>{popupText}</Popup>
-                        </Marker>
-                    );
-                })}
-
-                {/* Draw Route Line (Only if we have at least 2 points) */}
-                <RouteRenderer
-                    waypoints={waypoints}
-                    onRouteSelected={onRouteDetailsCalculated}
-                />
-
-                {/* Helper text overlay */}
-                {waypoints.filter(w => w !== null).length === 0 && (
-                    <div className="absolute bottom-4 left-0 right-0 pointer-events-none flex items-center justify-center z-[500]">
-                        <span className="bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-[10px] border border-white/10 shadow-lg">
-                            Adicione cidades para visualizar no mapa
-                        </span>
+                {/* Search Results Dropdown */}
+                {searchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-white/10 rounded-lg shadow-2xl z-[1000] max-h-48 overflow-y-auto">
+                        {searchResults.map((res, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => selectSearchResult(res)}
+                                className="w-full text-left p-3 hover:bg-white/5 border-b border-white/5 last:border-0 transition-colors"
+                            >
+                                <div className="text-xs font-bold text-white truncate">{res.display_name}</div>
+                                <div className="text-[10px] text-gray-400">{res.type}</div>
+                            </button>
+                        ))}
                     </div>
                 )}
-            </MapContainer>
+            </div>
+
+            <div className="h-[400px] w-full rounded-lg overflow-hidden border border-white/20 relative z-0">
+                <MapContainer
+                    center={defaultCenter}
+                    zoom={defaultZoom}
+                    scrollWheelZoom={true}
+                    className="h-full w-full"
+                    style={{ height: '100%', width: '100%' }}
+                >
+                    <TileLayer
+                        attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+                        url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+                    />
+
+                    {/* Batch Geocoder */}
+                    <BatchSearchHandler
+                        queries={stops}
+                        onResultsFound={setWaypoints}
+                    />
+
+                    <MapClickHandler onMapClick={handleMapClick} />
+                    <LocateMeButton onLocationFound={handleMapClick} />
+
+                    {manualCenter && (
+                        <>
+                            <Marker position={manualCenter} icon={DefaultIcon}>
+                                <Popup>Local Selecionado</Popup>
+                            </Marker>
+                            <RecenterAutomatically lat={manualCenter[0]} lng={manualCenter[1]} />
+                        </>
+                    )}
+
+                    {/* Draw Markers for all found waypoints */}
+                    {waypoints.map((wp, index) => {
+                        if (!wp) return null;
+                        const isStart = index === 0;
+                        const isEnd = index === waypoints.length - 1;
+
+                        let markerIcon = DefaultIcon;
+                        let popupText = `Parada ${index + 1}`;
+
+                        if (isStart) {
+                            markerIcon = startIcon;
+                            popupText = "Origem";
+                        } else if (isEnd) {
+                            markerIcon = endIcon;
+                            popupText = "Destino";
+                        }
+
+                        return (
+                            <Marker key={`wp-${index}`} position={[wp.lat, wp.lng]} icon={markerIcon}>
+                                <Popup>{popupText}</Popup>
+                            </Marker>
+                        );
+                    })}
+
+                    {/* Draw Route Line (Only if we have at least 2 points) */}
+                    <RouteRenderer
+                        waypoints={waypoints}
+                        onRouteSelected={onRouteDetailsCalculated}
+                    />
+
+                    {/* Helper text overlay */}
+                    {waypoints.filter(w => w !== null).length === 0 && (
+                        <div className="absolute bottom-4 left-0 right-0 pointer-events-none flex items-center justify-center z-[500]">
+                            <span className="bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-[10px] border border-white/10 shadow-lg">
+                                Toque no mapa ou use a busca para marcar locais
+                            </span>
+                        </div>
+                    )}
+                </MapContainer>
+            </div>
         </div>
     );
 }
@@ -275,8 +488,8 @@ export function RoutePreviewMap({ stops }) {
                 style={{ height: '100%', width: '100%' }}
             >
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+                    url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
                 />
 
                 <BatchSearchHandler
@@ -400,8 +613,8 @@ export function NavigationMap({ stops, onExit, onFinish }) {
                 style={{ height: '100%', width: '100%' }}
             >
                 <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+                    url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
                 />
 
                 {/* Get Coords for Route */}

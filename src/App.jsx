@@ -16,8 +16,26 @@ import { DataProvider } from './contexts/DataContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+import { useEffect } from 'react';
+import NotificationService from './services/NotificationService';
+
 // Main App Component with Routing and Context
 function App() {
+  useEffect(() => {
+    // Initial permissions request
+    const setupNotifications = async () => {
+      try {
+        const granted = await NotificationService.requestPermissions();
+        if (granted) {
+          console.log('Notifications permissions granted');
+        }
+      } catch (err) {
+        console.error('Failed to setup notifications:', err);
+      }
+    };
+    setupNotifications();
+  }, []);
+
   return (
     <NotificationProvider>
       <UserProvider>

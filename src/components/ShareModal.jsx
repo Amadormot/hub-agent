@@ -7,7 +7,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import { useData } from '../contexts/DataContext';
 import clsx from 'clsx';
 
-export default function ShareModal({ isOpen, onClose, content }) {
+export default function ShareModal({ isOpen, onClose, content, onSuccess }) {
     const { user: currentUser } = useUser();
     const { sendMessage } = useChat();
     const { notify } = useNotification();
@@ -44,11 +44,15 @@ export default function ShareModal({ isOpen, onClose, content }) {
         try {
             const shareText = content.type === 'evento'
                 ? `🚀 Confira este evento: ${content.title || content.name}`
-                : `📍 Confira esta rota: ${content.name}`;
+                : content.type === 'rota'
+                    ? `📍 Confira esta rota: ${content.name}`
+                    : `📰 Confira esta notícia: ${content.title}`;
 
             const shareLink = content.type === 'evento'
-                ? `[Ver Evento](/eventos)`
-                : `[Ver Rota](/rotas)`;
+                ? `[Ver Evento](/radar?id=${content.id}&type=evento)`
+                : content.type === 'rota'
+                    ? `[Ver Rota](/radar?id=${content.id}&type=rota)`
+                    : `[Ler Notícia](${content.url})`;
 
             const fullMessage = `${shareText}\n${shareLink}`;
 
@@ -71,6 +75,7 @@ export default function ShareModal({ isOpen, onClose, content }) {
             notify(`${selectedUserIds.length === 1 ? 'Compartilhado' : 'Compartilhados'} com sucesso!`, "success");
             setSelectedUserIds([]);
             onClose();
+            if (onSuccess) onSuccess();
         } catch (error) {
             notify("Erro ao compartilhar. Tente novamente.", "error");
         } finally {
@@ -81,7 +86,7 @@ export default function ShareModal({ isOpen, onClose, content }) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

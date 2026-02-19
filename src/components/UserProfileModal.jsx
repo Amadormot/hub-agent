@@ -63,21 +63,17 @@ export default function UserProfileModal({ user: initialUser, isOpen, onClose })
                                     />
                                 </div>
 
-                                {/* Brasão (Club Badge) - Floating at the bottom-right of centered circular avatar */}
+                                {/* Brasão (Club Badge) - Circular */}
                                 {currentUser.clubBadge && (
                                     <motion.div
                                         initial={{ scale: 0, rotate: -20 }}
                                         animate={{ scale: 1, rotate: 0 }}
-                                        className="absolute -bottom-4 -right-4 w-14 h-18 bg-primary flex items-center justify-center shadow-2xl z-20"
-                                        style={{ clipPath: 'polygon(10% 0%, 90% 0%, 100% 10%, 100% 75%, 50% 100%, 0% 75%, 0% 10%)' }}
+                                        className="absolute -bottom-2 -right-2 w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-2xl z-20 border-4 border-background-secondary overflow-hidden"
                                     >
-                                        <div
-                                            className="w-[calc(100%-4px)] h-[calc(100%-4px)] bg-background-secondary flex items-center justify-center overflow-hidden"
-                                            style={{ clipPath: 'polygon(10% 0%, 90% 0%, 100% 10%, 100% 75%, 50% 100%, 0% 75%, 0% 10%)' }}
-                                        >
+                                        <div className="w-full h-full bg-background-secondary flex items-center justify-center overflow-hidden">
                                             <img
                                                 src={currentUser.clubBadge}
-                                                className="w-full h-full object-contain p-1.5 transition-transform"
+                                                className="w-full h-full object-cover transition-transform"
                                                 alt="Brasão"
                                                 style={{
                                                     transform: `scale(${currentUser.badgeFraming?.zoom || 1}) translate(${currentUser.badgeFraming?.x || 0}%, ${currentUser.badgeFraming?.y || 0}%)`

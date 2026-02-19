@@ -50,13 +50,13 @@ export default function RouteDetailsModal({ route, onClose, onCheckIn, isChecked
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     onClick={(e) => e.stopPropagation()}
-                    className="bg-background-secondary w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                    className="bg-background-secondary w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] supports-[height:100dvh]:max-h-[85dvh]"
                 >
                     <div className="relative h-56 shrink-0">
                         <img
@@ -91,7 +91,7 @@ export default function RouteDetailsModal({ route, onClose, onCheckIn, isChecked
                         </div>
                     </div>
 
-                    <div className="p-6 overflow-y-auto">
+                    <div className="p-6 pb-12 overflow-y-auto">
                         {/* Stats Row */}
                         <div className="flex items-center justify-between mb-6 bg-white/5 rounded-xl p-4 border border-white/5">
                             <div className="flex flex-col items-center gap-1">
@@ -148,11 +148,29 @@ export default function RouteDetailsModal({ route, onClose, onCheckIn, isChecked
                                 onClick={() => onOpenProfile && onOpenProfile(route.createdBy)}
                                 className="mb-8 p-4 rounded-xl bg-gradient-to-r from-black/40 to-black/20 border border-white/10 flex items-center gap-4 shadow-lg backdrop-blur-sm cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
                             >
-                                <img
-                                    src={route.createdBy.avatar}
-                                    alt={route.createdBy.name}
-                                    className="w-16 h-16 rounded-full border-2 border-primary shadow-sm object-cover"
-                                />
+                                <div className="relative">
+                                    <div className="w-16 h-16 rounded-full border-2 border-primary shadow-sm overflow-hidden bg-zinc-800">
+                                        <img
+                                            src={route.createdBy.avatar}
+                                            alt={route.createdBy.name}
+                                            className="w-full h-full object-cover"
+                                            style={{
+                                                transform: `scale(${route.createdBy.avatarFraming?.zoom || 1}) translate(${route.createdBy.avatarFraming?.x || 0}%, ${route.createdBy.avatarFraming?.y || 0}%)`
+                                            }}
+                                        />
+                                    </div>
+                                    {route.createdBy.clubBadge && (
+                                        <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center border-2 border-background-secondary overflow-hidden shadow-md">
+                                            <img
+                                                src={route.createdBy.clubBadge}
+                                                className="w-full h-full object-cover"
+                                                style={{
+                                                    transform: `scale(${route.createdBy.badgeFraming?.zoom || 1}) translate(${route.createdBy.badgeFraming?.x || 0}%, ${route.createdBy.badgeFraming?.y || 0}%)`
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                                 <div>
                                     <p className="text-xs text-gray-300 uppercase font-bold tracking-wider mb-1">Rota Recomendada por</p>
                                     <p className="text-lg font-black text-white flex items-center gap-2">

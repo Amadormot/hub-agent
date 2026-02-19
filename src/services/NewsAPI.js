@@ -1,7 +1,7 @@
 // NewsAPI - Now powered by Supabase
 import { NewsServiceDB } from './NewsServiceDB';
 
-const API_KEY = 'moto-hub-secret-key-2024';
+const API_KEY = 'jornada-biker-secret-key-2026';
 
 // Helper to format relative time
 const formatRelativeTime = (timestamp) => {
@@ -71,7 +71,7 @@ export const NewsAPI = {
                 summary: data.summary,
                 content: data.content || '',
                 image: data.image,
-                source: data.source || 'Moto Hub Admin',
+                source: data.source || 'Jornada Biker Admin',
                 url: data.url || '#',
                 author: apiKey ? 'ai-agent' : 'admin',
                 published: data.published !== false

@@ -1,5 +1,5 @@
 /**
- * Geolocation Service for Moto Hub Brasil
+ * Geolocation Service for Jornada Biker
  * Handles location fetching and distance calculations (Haversine formula).
  */
 

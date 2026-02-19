@@ -3,6 +3,7 @@ import { useUser } from '../contexts/UserContext';
 import { compressImage } from '../utils/imageCompression';
 import { X, Camera, Upload, Shield, Bike } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CitySearchInput from './CitySearchInput';
 
 export default function ProfileEditModal({ isOpen, onClose }) {
     const { user, updateProfile } = useUser();
@@ -16,9 +17,12 @@ export default function ProfileEditModal({ isOpen, onClose }) {
     const [state, setState] = useState(user?.details?.state || '');
     const [avatarFraming, setAvatarFraming] = useState(user?.avatarFraming || { zoom: 1, x: 0, y: 0 });
     const [badgeFraming, setBadgeFraming] = useState(user?.badgeFraming || { zoom: 1, x: 0, y: 0 });
+    const [pixKey, setPixKey] = useState(user?.pixKey || '');
+    const [pixQR, setPixQR] = useState(user?.pixQR || '');
 
     const avatarInputRef = useRef(null);
     const badgeInputRef = useRef(null);
+    const pixQRInputRef = useRef(null);
 
     const handleFileChange = async (e, setFunction) => {
         const file = e.target.files[0];
@@ -26,7 +30,7 @@ export default function ProfileEditModal({ isOpen, onClose }) {
             try {
                 // Compress image before setting state
                 // Using 500px width and 0.7 quality for profile images/badges
-                const compressedDataUrl = await compressImage(file, 500, 0.7);
+                const compressedDataUrl = await compressImage(file, 1024, 0.8);
                 setFunction(compressedDataUrl);
             } catch (error) {
                 console.error("Error compressing image:", error);
@@ -54,55 +58,64 @@ export default function ProfileEditModal({ isOpen, onClose }) {
             location: city ? `${city}, ${state}` : '',
             details: { city, state },
             avatarFraming,
-            badgeFraming
+            badgeFraming,
+            pixKey,
+            pixQR
         });
         onClose();
     };
 
-    const FramingControls = ({ framing, setFraming, label }) => (
-        <div className="space-y-4 bg-background/50 p-4 rounded-xl border border-white/5 mt-4">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-primary/70">{label}</h4>
-            <div className="space-y-3">
-                <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-gray-400 w-8 font-bold">ZOOM</span>
-                    <input
-                        type="range"
-                        min="1"
-                        max="3"
-                        step="0.01"
-                        value={framing.zoom}
-                        onChange={(e) => setFraming(prev => ({ ...prev, zoom: parseFloat(e.target.value) }))}
-                        className="flex-1 accent-primary h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <span className="text-[10px] text-white font-black w-8 text-right">{framing.zoom.toFixed(2)}x</span>
+    const TouchFramingArea = ({ image, framing, setFraming, isCircular = true }) => {
+        const containerRef = useRef(null);
+
+        const handleWheel = (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            const newZoom = Math.min(Math.max(framing.zoom + delta, 1), 5);
+            setFraming(prev => ({ ...prev, zoom: newZoom }));
+        };
+
+        return (
+            <div
+                ref={containerRef}
+                className={`relative bg-zinc-900 overflow-hidden cursor-move border-2 border-primary/30 ${isCircular ? 'rounded-full w-24 h-24' : 'rounded-xl w-24 h-24'}`}
+                onWheel={handleWheel}
+                style={{ touchAction: 'none' }}
+            >
+                <motion.img
+                    src={image}
+                    drag
+                    dragConstraints={containerRef}
+                    dragElastic={0.2}
+                    onDrag={(e, info) => {
+                        // We translate the movement to percentage for our framing state
+                        // This is a simplification, but works for the UI preview
+                        const strength = 0.5 / framing.zoom;
+                        setFraming(prev => ({
+                            ...prev,
+                            x: prev.x + (info.delta.x * strength),
+                            y: prev.y + (info.delta.y * strength)
+                        }));
+                    }}
+                    style={{
+                        scale: framing.zoom,
+                        x: `${framing.x}%`,
+                        y: `${framing.y}%`,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                    }}
+                    className="pointer-events-none"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                    <Camera size={20} className="text-white drop-shadow-lg" />
                 </div>
-                <div className="flex gap-4">
-                    <div className="flex-1 flex items-center gap-2">
-                        <span className="text-[10px] text-gray-400 font-bold">X</span>
-                        <input
-                            type="range"
-                            min="-100"
-                            max="100"
-                            value={framing.x}
-                            onChange={(e) => setFraming(prev => ({ ...prev, x: parseInt(e.target.value) }))}
-                            className="flex-1 accent-primary/70 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                        />
-                    </div>
-                    <div className="flex-1 flex items-center gap-2">
-                        <span className="text-[10px] text-gray-400 font-bold">Y</span>
-                        <input
-                            type="range"
-                            min="-100"
-                            max="100"
-                            value={framing.y}
-                            onChange={(e) => setFraming(prev => ({ ...prev, y: parseInt(e.target.value) }))}
-                            className="flex-1 accent-primary/70 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-                        />
-                    </div>
-                </div>
+
+                {/* Pinch-to-zoom simulation hint or actual implementation would go here */}
+                {/* For web/desktop, wheel handles zoom. For mobile, we'd need a multi-touch gesture library or manual touch handler */}
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <AnimatePresence>
@@ -132,22 +145,15 @@ export default function ProfileEditModal({ isOpen, onClose }) {
                             {/* Avatar Section */}
                             <div className="space-y-4">
                                 <div className="flex flex-col items-center">
-                                    <div className="relative w-24 h-24 mb-2 group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
-                                        <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-primary bg-zinc-900">
-                                            <img
-                                                src={avatar}
-                                                alt="Avatar Preview"
-                                                className="w-full h-full object-cover transition-transform"
-                                                style={{
-                                                    transform: `scale(${avatarFraming.zoom}) translate(${avatarFraming.x}%, ${avatarFraming.y}%)`
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Camera size={24} className="text-white" />
-                                        </div>
+                                    <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+                                        <TouchFramingArea
+                                            image={avatar}
+                                            framing={avatarFraming}
+                                            setFraming={setAvatarFraming}
+                                            isCircular={true}
+                                        />
                                     </div>
-                                    <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Foto de Perfil</span>
+                                    <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mt-2">Foto de Perfil</span>
                                     <input
                                         type="file"
                                         ref={avatarInputRef}
@@ -156,12 +162,7 @@ export default function ProfileEditModal({ isOpen, onClose }) {
                                         accept="image/*"
                                     />
                                 </div>
-
-                                <FramingControls
-                                    framing={avatarFraming}
-                                    setFraming={setAvatarFraming}
-                                    label="Ajuste de Enquadramento - Foto"
-                                />
+                                <p className="text-[10px] text-gray-500 text-center italic">Arraste para mover • Role para Zoom</p>
                             </div>
 
                             {/* Name Input */}
@@ -176,28 +177,16 @@ export default function ProfileEditModal({ isOpen, onClose }) {
                             </div>
 
                             {/* Location Section */}
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="col-span-2 space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Cidade</label>
-                                    <input
-                                        type="text"
-                                        value={city}
-                                        onChange={(e) => setCity(e.target.value)}
-                                        className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors text-sm font-bold"
-                                        placeholder="Cidade"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">UF</label>
-                                    <input
-                                        type="text"
-                                        value={state}
-                                        onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))}
-                                        className="w-full bg-background border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors text-sm font-bold uppercase text-center"
-                                        placeholder="UF"
-                                        maxLength={2}
-                                    />
-                                </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Localização</label>
+                                <CitySearchInput
+                                    onSelect={(selectedCity) => {
+                                        setCity(selectedCity.nome);
+                                        setState(selectedCity.uf);
+                                    }}
+                                    defaultValue={city && state ? `${city}, ${state}` : city}
+                                    placeholder="Sua cidade (Ex: São Paulo, SP)"
+                                />
                             </div>
 
                             {/* Motorcycle Section */}
@@ -242,30 +231,43 @@ export default function ProfileEditModal({ isOpen, onClose }) {
                             </div>
 
                             {/* Club Badge Section */}
-                            <div className="space-y-4">
+                            <div className="pt-4 border-t border-white/5 space-y-4">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                                     Brasão do Moto Clube <Shield size={14} className="text-primary" />
                                 </label>
 
-                                <div className="flex items-center gap-4 bg-background p-4 rounded-xl border border-white/10 border-dashed hover:border-primary/50 transition-colors cursor-pointer" onClick={() => badgeInputRef.current?.click()}>
-                                    <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden shrink-0 border border-white/5">
-                                        {clubBadge ? (
-                                            <img
-                                                src={clubBadge}
-                                                alt="Brasão"
-                                                className="w-full h-full object-contain p-1"
-                                                style={{
-                                                    transform: `scale(${badgeFraming.zoom}) translate(${badgeFraming.x}%, ${badgeFraming.y}%)`
-                                                }}
-                                            />
-                                        ) : (
+                                <div className="flex flex-col items-center gap-4">
+                                    {clubBadge ? (
+                                        <div className="flex flex-col items-center gap-4 w-full">
+                                            <div className="relative group cursor-pointer" onClick={() => badgeInputRef.current?.click()}>
+                                                <TouchFramingArea
+                                                    image={clubBadge}
+                                                    framing={badgeFraming}
+                                                    setFraming={setBadgeFraming}
+                                                    isCircular={true}
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-gray-500 italic">Arraste para mover • Role para Zoom</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setClubBadge('')}
+                                                className="text-[10px] font-bold text-red-500 hover:text-red-400 uppercase tracking-widest"
+                                            >
+                                                Remover Brasão
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="w-full h-24 bg-background border border-white/10 border-dashed hover:border-primary/50 transition-colors cursor-pointer rounded-xl flex flex-col items-center justify-center gap-2"
+                                            onClick={() => badgeInputRef.current?.click()}
+                                        >
                                             <Shield size={24} className="text-gray-600" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-bold text-white mb-1">Upload do Brasão</p>
-                                        <p className="text-xs text-gray-400">Clique para selecionar imagem</p>
-                                    </div>
+                                            <div className="text-center">
+                                                <p className="text-xs font-bold text-white uppercase tracking-wider">Upload do Brasão</p>
+                                                <p className="text-[10px] text-gray-500">Clique para selecionar imagem</p>
+                                            </div>
+                                        </div>
+                                    )}
                                     <input
                                         type="file"
                                         ref={badgeInputRef}
@@ -274,17 +276,10 @@ export default function ProfileEditModal({ isOpen, onClose }) {
                                         accept="image/*"
                                     />
                                 </div>
-
-                                {clubBadge && (
-                                    <FramingControls
-                                        framing={badgeFraming}
-                                        setFraming={setBadgeFraming}
-                                        label="Ajuste de Enquadramento - Brasão"
-                                    />
-                                )}
                             </div>
 
-                            <div className="pt-4">
+
+                            <div className="pt-4 px-2">
                                 <button type="submit" className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all">
                                     Salvar Alterações
                                 </button>

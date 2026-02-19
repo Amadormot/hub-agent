@@ -5,7 +5,7 @@
  * @param {number} quality - JPEG quality (0 to 1).
  * @returns {Promise<string>} - The compressed image as a Data URL.
  */
-export const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+export const compressImage = (file, maxWidth = 1920, quality = 0.8) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);

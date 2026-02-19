@@ -232,8 +232,12 @@ const MOTO_BRANDS = [
 /**
  * Extrai marca + modelo de moto a partir do título da notícia
  */
-function extractMotoKeywords(title) {
-    const lower = title.toLowerCase();
+/**
+ * Extrai marca + modelo de moto a partir do título ou descrição
+ */
+function extractMotoKeywords(text) {
+    if (!text) return null;
+    const lower = text.toLowerCase();
     const found = [];
 
     // Encontrar marcas conhecidas
@@ -244,7 +248,7 @@ function extractMotoKeywords(title) {
     }
 
     // Extrair modelos alfanuméricos: CB 300, MT-07, CG 160, XRE 300, Z900, etc.
-    const models = title.match(/\b([A-Z]{1,5}[-\s]?\d{2,4}[A-Z]{0,2})\b/gi);
+    const models = text.match(/\b([A-Z]{1,5}[-\s]?\d{2,4}[A-Z]{0,2})\b/gi);
     if (models) found.push(...models);
 
     // Extrair nomes de modelos conhecidos
@@ -255,7 +259,7 @@ function extractMotoKeywords(title) {
         'street triple', 'speed triple', 'multistrada', 'panigale',
         'scrambler', 'monster', 'diavel', 'sportster', 'iron', 'fat boy',
         'road king', 'electra glide', 'street glide', 'adventure',
-        'super cub', 'goldwing', 'gold wing'];
+        'super cub', 'goldwing', 'gold wing', 'hayabusa', 'v-strom'];
     for (const model of knownModels) {
         if (lower.includes(model)) {
             found.push(model);
@@ -525,42 +529,63 @@ async function main() {
                 skipped++;
                 continue;
             }
-
             // Buscar imagem real e descrição do artigo
             process.stdout.write('🔗 ');
             const meta = await fetchArticleMeta(item.url);
 
-            // Cadeia de fallback para imagem:
+            const articleSummary = meta.description
+                ? cleanText(meta.description).slice(0, 300)
+                : item.summary;
+
+            // Cadeia de fallback para imagem revisada (v2.9.7):
             // 1. og:image do artigo
-            // 2. Buscar imagem na web por marca/modelo
-            // 3. Buscar imagem genérica de moto
-            // 4. Imagem aleatória de stock
+            // 2. Buscar imagem na web por marca/modelo encontrados no Título
+            // 3. Buscar imagem na web por marca/modelo encontrados no Resumo/Descrição
+            // 4. Buscar imagem genérica de moto baseada no título
+            // 5. Imagem aleatória de stock (Último recurso)
             let articleImage = meta.image;
             let imageSource = '🖼️';
 
             if (!articleImage) {
-                const keywords = extractMotoKeywords(item.title);
-                if (keywords) {
-                    process.stdout.write(`🔎[${keywords}] `);
-                    articleImage = await searchImageOnWeb(keywords);
+                // Tenta extrair do título
+                const titleKeywords = extractMotoKeywords(item.title);
+                if (titleKeywords) {
+                    process.stdout.write(`🔎[Title:${titleKeywords}] `);
+                    articleImage = await searchImageOnWeb(titleKeywords);
                     imageSource = '🔍';
                 }
             }
 
             if (!articleImage) {
-                // Busca genérica por "motocicleta" como último recurso antes do stock
-                articleImage = await searchImageOnWeb(item.title.split(' ').slice(0, 4).join(' '));
+                // Tenta extrair da descrição/resumo
+                const descKeywords = extractMotoKeywords(articleSummary);
+                if (descKeywords) {
+                    process.stdout.write(`🔎[Desc:${descKeywords}] `);
+                    articleImage = await searchImageOnWeb(descKeywords);
+                    imageSource = '🔎';
+                }
+            }
+
+            if (!articleImage) {
+                // Busca genérica por termos do título
+                const genericTerms = item.title.split(' ').slice(0, 4).join(' ');
+                process.stdout.write(`🌐[Generic:${genericTerms}] `);
+                articleImage = await searchImageOnWeb(genericTerms);
                 imageSource = '🌐';
             }
 
             if (!articleImage) {
+                // Fallback para banco interno caso falhe a busca web
                 articleImage = randomImage();
                 imageSource = '📷';
             }
 
-            const articleSummary = meta.description
-                ? cleanText(meta.description).slice(0, 300)
-                : item.summary;
+            // TRAVA DE SEGURANÇA: Nenhuma notícia sem imagem é publicada
+            if (!articleImage || articleImage.length < 10) {
+                console.log('→ 🚫 [ERROR: No Image Found] skipping...');
+                errors++;
+                continue;
+            }
 
             const result = await supabaseInsert('news', {
                 title: item.title,

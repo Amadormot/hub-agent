@@ -14,16 +14,47 @@ export const useNotification = () => {
 
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
+    const [lastMessages, setLastMessages] = useState(new Map());
 
     const notify = useCallback((message, type = 'info') => {
-        const id = Date.now();
-        setNotifications(prev => [...prev, { id, message, type }]);
+        const now = Date.now();
+        const lastSent = lastMessages.get(message);
+
+        // Ignore duplicate messages within 2 seconds
+        if (lastSent && now - lastSent < 2000) {
+            return;
+        }
+
+        const id = `${now}-${Math.random().toString(36).substr(2, 9)}`;
+
+        setLastMessages(prev => {
+            const next = new Map(prev);
+            next.set(message, now);
+            return next;
+        });
+
+        setNotifications(prev => {
+            // Limit to max 3 notifications to avoid clutter
+            const next = [...prev, { id, message, type }];
+            return next.slice(-3);
+        });
 
         // Auto-remove after 4 seconds
         setTimeout(() => {
             setNotifications(prev => prev.filter(n => n.id !== id));
         }, 4000);
-    }, []);
+
+        // Cleanup lastMessages after 5 seconds
+        setTimeout(() => {
+            setLastMessages(prev => {
+                const next = new Map(prev);
+                if (next.get(message) === now) {
+                    next.delete(message);
+                }
+                return next;
+            });
+        }, 5000);
+    }, [lastMessages]);
 
     const removeNotification = useCallback((id) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
@@ -32,7 +63,7 @@ export const NotificationProvider = ({ children }) => {
     return (
         <NotificationContext.Provider value={{ notify }}>
             {children}
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[999] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
                 <AnimatePresence>
                     {notifications.map(notification => (
                         <NotificationToast

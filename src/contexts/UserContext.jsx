@@ -3,6 +3,8 @@ import { getPatchByLevel } from '../constants/patches';
 import { useNotification } from './NotificationContext';
 import { supabase } from '../lib/supabase';
 import { UserService } from '../services/UserService';
+import { getCurrentPosition } from '../utils/geo';
+import NotificationService from '../services/NotificationService';
 
 const UserContext = createContext();
 
@@ -62,10 +64,10 @@ export function UserProvider({ children }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log("Auth State Changed:", event, session?.user?.id);
             if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
-                await fetchAndSetUserData(session.user.id, session);
+                fetchAndSetUserData(session.user.id, session); // Non-blocking
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
-                localStorage.removeItem('moto_hub_user');
+                localStorage.removeItem('jornada_biker_user');
             }
         });
 
@@ -74,11 +76,10 @@ export function UserProvider({ children }) {
         };
     }, []);
 
-    const fetchAndSetUserData = async (userId, newSession = null) => {
-        if (!userId) return;
+    const fetchAndSetUserData = async (userId, newSession = null, retryCount = 0) => {
+        if (!userId || retryCount > 1) return;
 
         try {
-            // First time attempt with timeout
             const fetchPromise = supabase
                 .from('users')
                 .select('*')
@@ -86,41 +87,71 @@ export function UserProvider({ children }) {
                 .single();
 
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("DB Fetch Timeout")), 5000)
+                setTimeout(() => reject(new Error("DB Fetch Timeout")), 4000)
             );
 
             const { data: userData, error } = await Promise.race([fetchPromise, timeoutPromise])
                 .catch(err => {
-                    console.warn("User data fetch failed or timed out, will try fallback.", err.message);
+                    console.warn("User data fetch failed or timed out:", err.message);
                     return { data: null, error: err };
                 });
 
-            // Se o banco falhar ou não retornar dados, usar o fallback (da sessão ou do parâmetro)
             if (error || !userData) {
+                console.log(`Dados não encontrados no banco (Tentativa ${retryCount}). Verificando sessão...`);
                 const sessionToUse = newSession || (await supabase.auth.getSession()).data.session;
 
                 if (sessionToUse?.user?.id === userId) {
+                    if (retryCount === 0) {
+                        try {
+                            const { data: checkProfile } = await supabase
+                                .from('users')
+                                .select('id')
+                                .eq('id', userId)
+                                .maybeSingle();
+
+                            if (!checkProfile) {
+                                console.log("Perfil não existe. Criando agora...");
+                                await UserService.createUser({
+                                    id: userId,
+                                    email: sessionToUse.user.email,
+                                    name: sessionToUse.user.user_metadata?.name || 'Piloto',
+                                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(sessionToUse.user.user_metadata?.name || 'User')}&background=EA580C&color=fff&size=256`,
+                                    motorcycle: sessionToUse.user.user_metadata?.motorcycle || {},
+                                    location: sessionToUse.user.user_metadata?.location || null,
+                                    details: sessionToUse.user.user_metadata?.details || {}
+                                });
+                                return fetchAndSetUserData(userId, sessionToUse, 1);
+                            }
+                        } catch (createError) {
+                            console.error("Erro ao tentar auto-criar perfil:", createError);
+                        }
+                    }
+
                     const fallbackUser = {
                         id: sessionToUse.user.id,
                         email: sessionToUse.user.email,
                         name: sessionToUse.user.user_metadata?.name || 'Piloto',
-                        avatar: `https://ui-avatars.com/api/?name=${sessionToUse.user.user_metadata?.name || 'User'}&background=random`,
-                        is_admin: sessionToUse.user.email === 'admin@motohub.com.br' || sessionToUse.user.email === 'agm_jr@outlook.com',
+                        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(sessionToUse.user.user_metadata?.name || 'User')}&background=EA580C&color=fff&size=256`,
+                        is_admin: sessionToUse.user.email === 'agm_jr@outlook.com',
+                        level: 1,
+                        xp: 0,
+                        motorcycle: sessionToUse.user.user_metadata?.motorcycle || { brand: '', model: '', year: '' },
+                        location: sessionToUse.user.user_metadata?.location || '',
+                        details: sessionToUse.user.user_metadata?.details || { city: '', state: '' },
                         ...sessionToUse.user.user_metadata
                     };
                     setUser(prev => prev?.id === userId && prev.email ? prev : fallbackUser);
-                    localStorage.setItem('moto_hub_user', JSON.stringify(fallbackUser));
+                    localStorage.setItem('jornada_biker_user', JSON.stringify(fallbackUser));
                 }
                 return;
             }
 
-            // Se tiver dados do banco, usa eles
             if (userData) {
                 const formattedUser = {
                     ...userData,
                     isAdmin: userData.is_admin,
-                    routesCompleted: userData.routes_completed,
-                    eventsAttended: userData.events_attended,
+                    routesCompleted: userData.routes_completed || 0,
+                    eventsAttended: userData.events_attended || 0,
                     likedRoutes: userData.liked_routes || [],
                     favoriteRoutes: userData.favorite_routes || [],
                     likedEvents: userData.liked_events || [],
@@ -129,28 +160,38 @@ export function UserProvider({ children }) {
                     followersList: userData.followers_list || [],
                     following: (userData.following_list || []).length,
                     followers: (userData.followers_list || []).length,
-                    // Profile fields (camelCase columns in DB)
-                    clubBadge: userData.clubBadge || userData.club_badge || '',
-                    avatarFraming: userData.avatarFraming || userData.avatar_framing || { zoom: 1, x: 0, y: 0 },
-                    badgeFraming: userData.badgeFraming || userData.badge_framing || { zoom: 1, x: 0, y: 0 },
-                    // Additional profile data
+                    clubBadge: userData.club_badge || '',
+                    avatarFraming: userData.avatar_framing || { zoom: 1, x: 0, y: 0 },
+                    badgeFraming: userData.badge_framing || { zoom: 1, x: 0, y: 0 },
+                    motorcycle: userData.motorcycle || { brand: '', model: '', year: '' },
+                    details: userData.details || { city: '', state: '' },
+                    location: userData.location || '',
                     bio: userData.bio || '',
                     patches: userData.patches || [],
+                    level: userData.level || 1,
+                    xp: userData.xp || 0,
                     premium: userData.premium || false,
+                    pixKey: userData.details?.pixKey || userData.pix_key || '',
+                    pixQR: userData.details?.pixQR || userData.pix_qr || '',
                     completedRoutes: userData.completed_routes || [],
                     pastEvents: userData.past_events || [],
                     suggestedRoutes: userData.suggested_routes || []
                 };
                 setUser(formattedUser);
-                localStorage.setItem('moto_hub_user', JSON.stringify(formattedUser));
+                localStorage.setItem('jornada_biker_user', JSON.stringify(formattedUser));
+
+                // Initialize Push Notifications if on Android/iOS
+                if (formattedUser?.id) {
+                    NotificationService.initPush(formattedUser.id, (token) => {
+                        // Update push_token in DB if different
+                        if (formattedUser.push_token !== token) {
+                            UserService.updateUser(formattedUser.id, { push_token: token });
+                        }
+                    });
+                }
             }
         } catch (error) {
-            if (error.code === 20 || error.name === 'AbortError') {
-                console.warn("Fetch aborted or cancelled (safe to ignore):", error);
-                return;
-            }
-            console.error("Error fetching user data:", error);
-            // Mesmo com erro, tenta manter o usuário logado com o que tiver
+            console.error("Error in fetchAndSetUserData:", error);
         }
     };
 
@@ -197,28 +238,60 @@ export function UserProvider({ children }) {
     const register = async (name, email, password, motorcycle = null, city = '', state = '') => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signUp({
+            const location = city ? `${city}, ${state}` : '';
+            const details = { city, state };
+
+            const signupPromise = supabase.auth.signUp({
                 email,
                 password,
                 options: {
                     data: {
                         name,
                         motorcycle,
-                        location: city ? `${city}, ${state}` : '',
-                        details: { city, state }
+                        location,
+                        details
                     }
                 }
             });
 
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Tempo limite de cadastro excedido (Rede lenta)")), 20000)
+            );
+
+            const { data, error } = await Promise.race([signupPromise, timeoutPromise]);
+
             if (error) throw error;
 
-            if (data.user && data.session) {
-                notify("Conta criada com sucesso!", "success");
-                return true;
-            } else {
-                notify("Verifique seu email para confirmar o cadastro.", "info");
-                return true;
+            if (data.user) {
+                // Tenta criar o perfil na tabela 'users' imediatamente se tivermos uma sessão
+                if (data.session) {
+                    try {
+                        // Tenta criar com um timeout curto
+                        await Promise.race([
+                            UserService.createUser({
+                                id: data.user.id,
+                                email,
+                                name,
+                                motorcycle,
+                                location,
+                                details
+                            }),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error("DB Timeout")), 5000))
+                        ]);
+                    } catch (dbError) {
+                        console.error("Erro ao criar perfil no banco (pode já existir ou timeout):", dbError);
+                    }
+                }
+
+                if (data.session) {
+                    notify("Conta criada com sucesso!", "success");
+                    return true;
+                } else {
+                    notify("Verifique seu email para confirmar o cadastro.", "info");
+                    return true;
+                }
             }
+            return false;
         } catch (error) {
             console.error("Register error:", error);
             notify(error.message || "Erro ao criar conta", "error");
@@ -242,10 +315,35 @@ export function UserProvider({ children }) {
     const updateProfile = async (updatedData) => {
         if (!user) return;
         try {
-            // Map frontend fields back to snake_case for DB
+            // Map frontend fields (camelCase) to DB fields (snake_case)
             const dbUpdates = {
-                ...updatedData
+                name: updatedData.name,
+                avatar: updatedData.avatar,
+                location: updatedData.location,
+                motorcycle: updatedData.motorcycle,
+                club_badge: updatedData.clubBadge,
+                avatar_framing: updatedData.avatarFraming,
+                badge_framing: updatedData.badgeFraming,
+                // Explicitly allow persistence of like/favorite arrays
+                liked_routes: updatedData.liked_routes || updatedData.likedRoutes,
+                favorite_routes: updatedData.favorite_routes || updatedData.favoriteRoutes,
+                liked_events: updatedData.liked_events || updatedData.likedEvents,
+                favorite_events: updatedData.favorite_events || updatedData.favoriteEvents,
+                past_events: updatedData.past_events || updatedData.pastEvents,
+                completed_routes: updatedData.completed_routes || updatedData.completedRoutes,
+                suggested_routes: updatedData.suggested_routes || updatedData.suggestedRoutes,
+                pix_key: updatedData.pixKey,
+                pix_qr: updatedData.pixQR,
+                details: {
+                    ...updatedData.details,
+                    ...(updatedData.pixKey !== undefined ? { pixKey: updatedData.pixKey } : {}),
+                    ...(updatedData.pixQR !== undefined ? { pixQR: updatedData.pixQR } : {})
+                }
             };
+
+            // Remove undefined fields to avoid overwriting with null
+            Object.keys(dbUpdates).forEach(key => dbUpdates[key] === undefined && delete dbUpdates[key]);
+
             if (updatedData.isAdmin !== undefined) dbUpdates.is_admin = updatedData.isAdmin;
 
             const updatedProfile = await UserService.updateUser(user.id, dbUpdates);
@@ -337,11 +435,48 @@ export function UserProvider({ children }) {
         }
     };
 
+    const [processingCheckIns, setProcessingCheckIns] = useState(new Set());
+
     const checkInEvent = async (event) => {
-        if (!user) return;
-        // Check if already attended eventually with a joined table
-        notify(`Check-in realizado! Você ganhou 50 XP.`, "info");
-        await addXp(50, `Participação em evento: ${event.title}`);
+        if (!user || !event?.id) return;
+
+        const eventIdStr = String(event.id);
+
+        // UI Guard: Already processing or already in pastEvents
+        if (processingCheckIns.has(eventIdStr)) return;
+
+        const currentPast = user.pastEvents || [];
+        if (currentPast.some(pe => String(pe.id) === eventIdStr)) return;
+
+        setProcessingCheckIns(prev => new Set(prev).add(eventIdStr));
+
+        try {
+            const updatedPast = [...currentPast, {
+                id: event.id,
+                title: event.title,
+                date: new Date().toISOString()
+            }];
+
+            await updateProfile({ past_events: updatedPast });
+
+            // Optimistic Update: Update local state immediately so UI reflects check-in
+            setUser(prev => ({
+                ...prev,
+                pastEvents: updatedPast
+            }));
+
+            notify(`Check-in realizado! Você ganhou 50 XP.`, "success");
+            await addXp(50, `Participação em evento: ${event.title}`);
+        } finally {
+            // Keep it locked for a bit to allow state sync
+            setTimeout(() => {
+                setProcessingCheckIns(prev => {
+                    const next = new Set(prev);
+                    next.delete(eventIdStr);
+                    return next;
+                });
+            }, 3000);
+        }
     };
 
     const followUser = async (targetUserId) => {
@@ -395,46 +530,65 @@ export function UserProvider({ children }) {
 
     // Active Route State (Keep in localStorage for session resilience)
     const [activeRoute, setActiveRoute] = useState(() => {
-        const stored = localStorage.getItem('moto_hub_active_route');
+        const stored = localStorage.getItem('jornada_biker_active_route');
         return stored ? JSON.parse(stored) : null;
     });
 
-    const startRoute = (routeId, routeName) => {
+    const startRoute = async (routeId, routeName) => {
         if (activeRoute) return false;
 
-        const newActiveRoute = {
-            id: routeId,
-            name: routeName || 'Rota #' + routeId,
-            startTime: Date.now(),
-            status: 'in_progress'
-        };
+        try {
+            const pos = await getCurrentPosition();
+            const newActiveRoute = {
+                id: routeId,
+                name: routeName || 'Rota #' + routeId,
+                startTime: Date.now(),
+                startCoords: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+                status: 'in_progress'
+            };
 
-        setActiveRoute(newActiveRoute);
-        localStorage.setItem('moto_hub_active_route', JSON.stringify(newActiveRoute));
-        return true;
+            setActiveRoute(newActiveRoute);
+            localStorage.setItem('jornada_biker_active_route', JSON.stringify(newActiveRoute));
+            return true;
+        } catch (error) {
+            notify("Ative a localização para iniciar a rota.", "error");
+            return false;
+        }
     };
 
     const endRoute = async () => {
         if (!activeRoute || !user) return null;
 
-        const finishedRoute = { ...activeRoute, endTime: Date.now(), status: 'completed' };
-        setActiveRoute(null);
-        localStorage.removeItem('moto_hub_active_route');
+        try {
+            const pos = await getCurrentPosition();
+            const finishedRoute = {
+                ...activeRoute,
+                endTime: Date.now(),
+                endCoords: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+                status: 'completed'
+            };
 
-        // Increment routes completed in DB
-        await UserService.updateUser(user.id, {
-            routes_completed: (user.routesCompleted || 0) + 1
-        });
+            setActiveRoute(null);
+            localStorage.removeItem('jornada_biker_active_route');
 
-        await addXp(100, `Rota concluída: ${activeRoute.name}`);
-        await fetchAndSetUserData(user.id);
+            // Increment routes completed in DB
+            await UserService.updateUser(user.id, {
+                routes_completed: (user.routesCompleted || 0) + 1
+            });
 
-        return finishedRoute;
+            await addXp(100, `Rota concluída: ${activeRoute.name}`);
+            await fetchAndSetUserData(user.id);
+
+            return finishedRoute;
+        } catch (error) {
+            notify("Erro ao finalizar rota: localização necessária.", "error");
+            return null;
+        }
     };
 
     const abortRoute = () => {
         setActiveRoute(null);
-        localStorage.removeItem('moto_hub_active_route');
+        localStorage.removeItem('jornada_biker_active_route');
         notify("Rota cancelada.", "info");
     };
 
@@ -455,6 +609,8 @@ export function UserProvider({ children }) {
             toggleFavorite,
             toggleLikeEvent,
             toggleFavoriteEvent,
+            checkInEvent,
+            processingCheckIns,
             followUser
         }}>
             {children}

@@ -1,4 +1,4 @@
-import { MapPin, Trophy, Navigation, Plus, BadgeCheck, Search, Shield, Baby, Bike, Map, TrendingUp, Sunrise, BatteryCharging, CloudRain, Users, Tent, Crown, Heart, Bookmark } from 'lucide-react';
+import { MapPin, Trophy, Navigation, Plus, BadgeCheck, Search, Shield, Baby, Bike, Map, TrendingUp, Sunrise, BatteryCharging, CloudRain, Users, Tent, Crown, Heart, Bookmark, Clock } from 'lucide-react';
 import { getPatchByLevel } from '../constants/patches';
 import { useUser } from '../contexts/UserContext';
 import { useState, useMemo, useEffect } from 'react';
@@ -7,9 +7,10 @@ import clsx from 'clsx';
 import { useData } from '../contexts/DataContext';
 import RouteRegistrationModal from '../components/RouteRegistrationModal';
 import RouteDetailsModal from '../components/RouteDetailsModal';
+import RouteCard from '../components/RouteCard';
 import UserProfileModal from '../components/UserProfileModal';
 import ShareModal from '../components/ShareModal';
-import { GeolocationService } from '../services/GeolocationService';
+import { calculateDistance, getCurrentPosition } from '../utils/geo';
 import { useLocation } from 'react-router-dom';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -56,26 +57,32 @@ export default function RoutesPage() {
         setSelectedUser(user);
     };
 
-    const handleToggleLike = (e, routeId) => {
+    const handleToggleLike = async (e, routeId) => {
         e.stopPropagation();
         if (!user) {
             notify("Faça login para curtir rotas!", "info");
             return;
         }
-        const isLiked = toggleLike(routeId);
+        const isLiked = await toggleLike(routeId);
         updateRouteLikes(routeId, isLiked);
+
+        // Update selectedRoute if it's the one being liked to refresh modal UI
+        if (selectedRoute && String(selectedRoute.id) === String(routeId)) {
+            setSelectedRoute(prev => ({ ...prev, likes: Math.max(0, (prev.likes || 0) + (isLiked ? 1 : -1)) }));
+        }
+
         if (isLiked) {
             notify("Rota curtida!", "success");
         }
     };
 
-    const handleToggleFavorite = (e, routeId) => {
+    const handleToggleFavorite = async (e, routeId) => {
         e.stopPropagation();
         if (!user) {
             notify("Faça login para favoritar rotas!", "info");
             return;
         }
-        toggleFavorite(routeId);
+        await toggleFavorite(routeId);
     };
 
     const handleStartRoute = async (e, route) => {
@@ -85,14 +92,15 @@ export default function RoutesPage() {
             return;
         }
         try {
-            const position = await GeolocationService.getCurrentPosition(isSimulatedMode);
+            const position = await getCurrentPosition();
             const targetLat = route.startLat || route.latitude;
             const targetLng = route.startLng || route.longitude;
             const isDevBypass = (e && e.altKey) || isSimulatedMode;
             if (targetLat && !isDevBypass) {
-                const isNear = GeolocationService.isWithinRadius(position.lat, position.lng, targetLat, targetLng, 30);
+                const distance = calculateDistance(position.coords.latitude, position.coords.longitude, targetLat, targetLng);
+                const isNear = distance <= 20; // Radius updated to 20km
                 if (!isNear) {
-                    alert(`Você está fora da área de partida (${GeolocationService.calculateDistance(position.lat, position.lng, targetLat, targetLng).toFixed(1)}km). Aproxime-se da cidade de origem para iniciar.`);
+                    alert(`Você está fora da área de partida (${distance.toFixed(1)}km). Aproxime-se da cidade de origem para iniciar (limite de 20km).`);
                     return;
                 }
             }
@@ -106,7 +114,7 @@ export default function RoutesPage() {
             }
             return;
         }
-        const success = startRoute(route.id);
+        const success = await startRoute(route.id, route.name);
         if (success) {
             setShowStartToast(route.name);
             setTimeout(() => setShowStartToast(null), 3000);
@@ -116,14 +124,15 @@ export default function RoutesPage() {
     const handleEndRoute = async (e, route) => {
         if (e && e.stopPropagation) e.stopPropagation();
         try {
-            const position = await GeolocationService.getCurrentPosition(isSimulatedMode);
+            const position = await getCurrentPosition();
             const targetLat = route.latitude;
             const targetLng = route.longitude;
             const isDevBypass = (e && e.altKey) || isSimulatedMode;
             if (targetLat && !isDevBypass) {
-                const isNear = GeolocationService.isWithinRadius(position.lat, position.lng, targetLat, targetLng, 20);
+                const distance = calculateDistance(position.coords.latitude, position.coords.longitude, targetLat, targetLng);
+                const isNear = distance <= 20; // Radius updated to 20km
                 if (!isNear) {
-                    alert(`Você ainda está longe do destino (${GeolocationService.calculateDistance(position.lat, position.lng, targetLat, targetLng).toFixed(1)}km). Aproxime-se da cidade de destino para concluir.`);
+                    alert(`Você ainda está longe do destino (${distance.toFixed(1)}km). Aproxime-se da cidade de destino para concluir (limite de 20km).`);
                     return;
                 }
             }
@@ -166,7 +175,7 @@ export default function RoutesPage() {
     };
 
     return (
-        <div className="p-6 pb-24 relative">
+        <div className="p-6 relative">
             <div className="mb-8 space-y-4">
                 <div className="relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors" size={18} />
@@ -205,115 +214,18 @@ export default function RoutesPage() {
 
             <div className="space-y-4">
                 {filteredRoutes.map((route, index) => (
-                    <motion.div
+                    <RouteCard
                         key={route.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        onClick={() => setSelectedRoute(route)}
-                        className="group relative h-48 rounded-2xl cursor-pointer shadow-lg shadow-black/50 border border-white/5 bg-zinc-900"
-                    >
-                        <div className="absolute inset-0 rounded-2xl overflow-hidden isolation-auto">
-                            <img
-                                src={route.image}
-                                alt={route.name}
-                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                onError={(e) => {
-                                    e.target.src = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1000&auto=format&fit=crop';
-                                }}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent p-4 flex flex-col justify-end">
-                                <h3 className="font-black text-xl text-white mb-1 group-hover:text-primary transition-colors uppercase tracking-tight drop-shadow-lg leading-none">{route.name}</h3>
-                                <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 opacity-80">
-                                    <span className="truncate max-w-[120px]">{route.origin?.split(' - ')[0] || route.city?.split(' (')[0] || 'Origem'}</span>
-                                    <Navigation size={10} className="text-primary rotate-90" fill="currentColor" />
-                                    <span className="truncate max-w-[120px]">{route.destination?.split(' - ')[0] || route.city?.split(' (')[0] || 'Destino'}</span>
-                                </div>
-                                <div className="flex items-center gap-4 text-xs font-bold text-gray-300 mb-3">
-                                    <span className={clsx(
-                                        "px-2.5 py-0.5 rounded-lg text-white font-black text-[10px] uppercase shadow-lg",
-                                        route.difficulty === 'Expert' ? 'bg-red-600' :
-                                            route.difficulty === 'Médio' ? 'bg-yellow-600' : 'bg-green-600'
-                                    )}>
-                                        {route.difficulty === 'Expert' ? 'Mestre' : route.difficulty}
-                                    </span>
-                                    <span className="flex items-center gap-1.5"><MapPin size={14} className="text-primary" /> {route.distance} KM</span>
-                                    <span className="flex items-center gap-1.5 text-premium bg-premium/10 px-2 py-0.5 rounded-lg"><Trophy size={14} /> +{route.xp} XP</span>
-                                </div>
-
-                                {route.createdBy && (
-                                    <div className="flex items-center gap-3 mb-2 pt-3 border-t border-white/10 mt-auto overflow-visible">
-                                        <img
-                                            src={route.createdBy.avatar}
-                                            alt={route.createdBy.name}
-                                            className="w-12 h-12 rounded-full border-2 border-white/20 shadow-lg"
-                                        />
-                                        <div className="flex flex-col cursor-pointer" onClick={(e) => handleOpenUserProfile(e, route.createdBy)}>
-                                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none mb-0.5 group-hover/avatar:text-primary transition-colors">Criado por</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-white group-hover/avatar:underline">{route.createdBy.name}</span>
-                                                {(() => {
-                                                    const patch = getPatchByLevel(route.createdBy.level);
-                                                    const PatchIcon = patch ? (
-                                                        {
-                                                            "Baby": Baby,
-                                                            "Bike": Bike,
-                                                            "Map": Map,
-                                                            "TrendingUp": TrendingUp,
-                                                            "Sunrise": Sunrise,
-                                                            "BatteryCharging": BatteryCharging,
-                                                            "CloudRain": CloudRain,
-                                                            "Users": Users,
-                                                            "Tent": Tent,
-                                                            "Crown": Crown
-                                                        }[patch.icon] || Shield
-                                                    ) : Shield;
-
-                                                    const tierColors =
-                                                        route.createdBy.level >= 10 ? 'from-yellow-600 to-yellow-900 border-yellow-400' :
-                                                            route.createdBy.level >= 7 ? 'from-blue-600 to-blue-900 border-blue-400' :
-                                                                route.createdBy.level >= 4 ? 'from-red-600 to-red-900 border-red-400' :
-                                                                    'from-gray-700 to-gray-900 border-gray-500';
-
-                                                    return (
-                                                        <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${tierColors} flex items-center justify-center border shadow-sm`} title={patch?.name || 'Iniciante'}>
-                                                            <PatchIcon size={12} className="text-white drop-shadow-md" strokeWidth={2.5} />
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="absolute top-3 right-3 flex flex-col gap-2 z-30">
-                                <button
-                                    onClick={(e) => handleToggleLike(e, route.id)}
-                                    className={clsx(
-                                        "h-9 px-3 rounded-full flex items-center justify-center backdrop-blur-md border shadow-lg transition-all active:scale-90 gap-1.5",
-                                        user?.likedRoutes?.includes(String(route.id))
-                                            ? "bg-red-600/20 text-red-500 border-red-500/50"
-                                            : "bg-black/40 text-white border-white/10 hover:bg-black/60"
-                                    )}
-                                >
-                                    <Heart size={16} fill={user?.likedRoutes?.includes(String(route.id)) ? "currentColor" : "none"} />
-                                    <span className="text-xs font-bold">{route.likes || 0}</span>
-                                </button>
-                                <button
-                                    onClick={(e) => handleToggleFavorite(e, route.id)}
-                                    className={clsx(
-                                        "w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border shadow-lg transition-all active:scale-90",
-                                        user?.favoriteRoutes?.includes(String(route.id))
-                                            ? "bg-yellow-500/20 text-yellow-500 border-yellow-500/50"
-                                            : "bg-black/40 text-white border-white/10 hover:bg-black/60"
-                                    )}
-                                >
-                                    <Bookmark size={16} fill={user?.favoriteRoutes?.includes(String(route.id)) ? "currentColor" : "none"} />
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
+                        route={route}
+                        index={index}
+                        user={user}
+                        activeRoute={activeRoute}
+                        onStartRoute={handleStartRoute}
+                        onToggleLike={handleToggleLike}
+                        onToggleFavorite={handleToggleFavorite}
+                        onOpenProfile={handleOpenUserProfile}
+                        onClick={setSelectedRoute}
+                    />
                 ))}
             </div>
 
@@ -351,6 +263,10 @@ export default function RoutesPage() {
             <ShareModal
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
+                onSuccess={() => {
+                    setIsShareModalOpen(false);
+                    setSelectedRoute(null);
+                }}
                 content={shareContent || {}}
             />
 

@@ -6,8 +6,8 @@ import { ArrowRight } from 'lucide-react';
 import Logo from '../components/Logo';
 
 export default function Login() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('agm_jr@outlook.com');
+    const [password, setPassword] = useState('Mot@88453251');
     const [isLoading, setIsLoading] = useState(false);
     const { login, user } = useUser();
     const navigate = useNavigate();

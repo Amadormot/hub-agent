@@ -54,7 +54,7 @@ export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
                 await navigator.share({
                     files: [file],
                     title: `Meu Pilot Card - Stories`,
-                    text: `Dá um check no meu perfil no Moto Hub Brasil! 🏍️🔥`
+                    text: `Dá um check no meu perfil no Jornada Biker! 🏍️🔥`
                 });
             } catch (error) {
                 if (error.name !== 'AbortError') {
@@ -140,16 +140,14 @@ export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
                                         />
                                     </div>
 
-                                    {/* Club Badge */}
+                                    {/* Club Badge - Circular */}
                                     {user.clubBadge && (
-                                        <div className="absolute -bottom-2 -right-2 w-16 h-20 bg-primary flex items-center justify-center shadow-lg z-20"
-                                            style={{ clipPath: 'polygon(10% 0%, 90% 0%, 100% 10%, 100% 75%, 50% 100%, 0% 75%, 0% 10%)' }}>
-                                            <div className="w-[calc(100%-4px)] h-[calc(100%-4px)] bg-zinc-950 flex items-center justify-center overflow-hidden"
-                                                style={{ clipPath: 'polygon(10% 0%, 90% 0%, 100% 10%, 100% 75%, 50% 100%, 0% 75%, 0% 10%)' }}>
+                                        <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-lg z-20 border-4 border-zinc-950 overflow-hidden">
+                                            <div className="w-full h-full bg-zinc-950 flex items-center justify-center overflow-hidden">
                                                 <img
                                                     src={user.clubBadge}
                                                     crossOrigin="anonymous"
-                                                    className="w-full h-full object-contain p-2"
+                                                    className="w-full h-full object-cover"
                                                     style={{
                                                         transform: `scale(${user.badgeFraming?.zoom || 1}) translate(${user.badgeFraming?.x || 0}%, ${user.badgeFraming?.y || 0}%)`
                                                     }}
@@ -227,7 +225,7 @@ export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
                                 {/* Footer Logo */}
                                 <div className="mt-auto pt-8 flex flex-col items-center opacity-50">
                                     <h3 className="text-white font-black text-xl tracking-tighter leading-none mb-1">
-                                        MOTO HUB <span className="text-primary">BRASIL</span>
+                                        JORNADA <span className="text-primary">BIKER</span>
                                     </h3>
                                     <p className="text-[9px] text-gray-500 uppercase tracking-[0.3em]">Comunidade Oficial</p>
                                 </div>

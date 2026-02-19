@@ -1,65 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../contexts/UserContext';
-import { X, Map, MapPin, Navigation, Plus, Trash2 } from 'lucide-react';
+import { X, Map, MapPin, Navigation, Plus, Trash2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPicker } from './MapComponents';
+import { compressImage } from '../utils/imageCompression';
 
 export default function RouteRegistrationModal({ isOpen, onClose, onRegister, routes }) {
     const { user } = useUser();
 
-    // Initial State - Now using a list of Stops
+    // Initial State - Now focused on coordinates and resolved names
     const [formData, setFormData] = useState({
         name: '',
         distance: '',
+        duration: '',
         difficulty: 'Lazer',
         description: '',
         image: '',
         stops: [
-            { state: 'SP', city: '', type: 'origin' },     // Default Start
-            { state: 'SP', city: '', type: 'destination' } // Default End
+            { name: '', city: '', state: '', lat: null, lng: null, type: 'origin' },
+            { name: '', city: '', state: '', lat: null, lng: null, type: 'destination' }
         ]
     });
 
+    const [activeStopIndex, setActiveStopIndex] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Cache available cities for each stop index to avoid re-fetching constantly
-    // Structure: { [index]: ["City1", "City2", ...] }
-    const [cityOptions, setCityOptions] = useState({});
-
-    const [isLoadingCity, setIsLoadingCity] = useState({}); // { [index]: boolean }
-
-    const BRAZIL_STATES = [
-        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-        "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
-    ];
-
     const DIFFICULTIES = ['Lazer', 'Médio', 'Expert'];
-
-    // Fetch Cities Helper
-    const fetchCities = async (uf) => {
-        try {
-            const res = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`);
-            const data = await res.json();
-            return data.map(city => city.nome).sort();
-        } catch (err) {
-            console.error("Failed to fetch cities for " + uf, err);
-            return [];
-        }
-    };
-
-    // Load cities when a stop's state changes
-    useEffect(() => {
-        formData.stops.forEach((stop, index) => {
-            if (stop.state && !cityOptions[`${index}-${stop.state}`]) {
-                // If we haven't loaded cities for this state yet (using a simple cache key)
-                setIsLoadingCity(prev => ({ ...prev, [index]: true }));
-                fetchCities(stop.state).then(cities => {
-                    setCityOptions(prev => ({ ...prev, [index]: cities, [`${index}-${stop.state}`]: true }));
-                    setIsLoadingCity(prev => ({ ...prev, [index]: false }));
-                });
-            }
-        });
-    }, [formData.stops]);
 
     // Reset form on open
     useEffect(() => {
@@ -67,43 +33,58 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
             setFormData({
                 name: '',
                 distance: '',
+                duration: '',
                 difficulty: 'Lazer',
                 description: '',
                 image: '',
                 stops: [
-                    { state: 'SP', city: '', type: 'origin' },
-                    { state: 'SP', city: '', type: 'destination' }
+                    { name: '', city: '', state: '', lat: null, lng: null, type: 'origin' },
+                    { name: '', city: '', state: '', lat: null, lng: null, type: 'destination' }
                 ]
             });
+            setActiveStopIndex(0);
         }
     }, [isOpen]);
 
-    const handleStopChange = (index, field, value) => {
+    const handleLocationSelected = ({ lat, lng, name, city, state }) => {
         const newStops = [...formData.stops];
-        newStops[index] = { ...newStops[index], [field]: value };
+        const index = activeStopIndex;
 
-        // If state changed, clear city
-        if (field === 'state') {
-            newStops[index].city = '';
-        }
+        // Use city name if available, otherwise short name
+        const stopLabel = city || name.split(',')[0];
+
+        newStops[index] = {
+            ...newStops[index],
+            name: name,
+            city: city || stopLabel,
+            state: state || '',
+            lat,
+            lng
+        };
 
         setFormData(prev => ({ ...prev, stops: newStops }));
+
+        // Auto-advance logic
+        if (index < formData.stops.length - 1) {
+            setActiveStopIndex(index + 1);
+        }
     };
 
     const addStop = () => {
         const newStops = [...formData.stops];
-        // Insert before the last item (Destination)
         const insertIndex = newStops.length - 1;
-        newStops.splice(insertIndex, 0, { state: 'SP', city: '', type: 'stop' });
+        newStops.splice(insertIndex, 0, { name: '', city: '', state: '', lat: null, lng: null, type: 'stop' });
         setFormData(prev => ({ ...prev, stops: newStops }));
+        setActiveStopIndex(insertIndex); // Auto-focus new stop
     };
 
     const removeStop = (index) => {
-        // Prevent removing if only 2 stops left
         if (formData.stops.length <= 2) return;
-
         const newStops = formData.stops.filter((_, i) => i !== index);
         setFormData(prev => ({ ...prev, stops: newStops }));
+        if (activeStopIndex >= newStops.length) {
+            setActiveStopIndex(newStops.length - 1);
+        }
     };
 
     const handleChange = (e) => {
@@ -112,14 +93,15 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
         if (type === 'file') {
             const file = files[0];
             if (file) {
-                if (file.size > 512 * 1024) {
-                    alert("A imagem é muito grande! Por favor, escolha uma imagem menor que 500KB.");
-                    e.target.value = "";
-                    return;
-                }
                 const reader = new FileReader();
-                reader.onloadend = () => {
-                    setFormData(prev => ({ ...prev, [name]: reader.result }));
+                reader.onloadend = async () => {
+                    try {
+                        const compressed = await compressImage(file, 1920, 0.8);
+                        setFormData(prev => ({ ...prev, [name]: compressed }));
+                    } catch (err) {
+                        console.error("Compression error:", err);
+                        setFormData(prev => ({ ...prev, [name]: reader.result }));
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -131,78 +113,66 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        // Validation
-        if (!formData.name || !formData.distance || formData.stops.some(s => !s.city)) {
-            alert("Por favor, preencha todos os campos obrigatórios e selecione as cidades para todas as paradas.");
+        if (!formData.name || !formData.distance || formData.stops.some(s => !s.lat)) {
+            alert("Por favor, preencha o nome da rota e selecione todos os pontos no mapa.");
             return;
         }
 
-        // Duplicate Check
         const start = formData.stops[0];
         const end = formData.stops[formData.stops.length - 1];
-        const originStr = `${start.city} - ${start.state}`;
-        const destStr = `${end.city} - ${end.state}`;
+        const originStr = start.city ? `${start.city} - ${start.state}` : start.name.split(',')[0];
+        const destStr = end.city ? `${end.city} - ${end.state}` : end.name.split(',')[0];
 
         const isDuplicate = routes?.some(r =>
             r.origin === originStr && r.destination === destStr
         );
 
         if (isDuplicate) {
-            alert("Esta rota já possui cadastro! Por favor, pesquise por ela na aba de rotas para visualizar detalhes ou iniciar o trajeto.");
+            alert("Esta rota já possui cadastro!");
             return;
         }
 
         setIsSubmitting(true);
 
-        try {
-            setTimeout(() => {
-                setIsSubmitting(false);
-                const start = formData.stops[0];
-                const end = formData.stops[formData.stops.length - 1];
-
-                const newRoute = {
-                    ...formData,
-                    city: `${end.city} (${end.state})`, // Legacy support
-                    state: end.state,
-                    origin: `${start.city} - ${start.state}`,
-                    destination: `${end.city} - ${end.state}`,
-                    waypoints: formData.stops.map(s => `${s.city}, ${s.state}`),
-
-                    id: Date.now(),
-                    xp: Math.round((parseInt(formData.distance) || 10) * (formData.difficulty === 'Expert' ? 2 : formData.difficulty === 'Médio' ? 1.5 : 1)),
-                    likes: 0,
-                    createdBy: {
-                        name: user?.name || 'Motociclista Anônimo',
-                        avatar: user?.avatar,
-                        level: user?.level,
-                        patches: user?.badges || []
-                    }
-                };
-                onRegister(newRoute);
-                onClose();
-            }, 1500);
-        } catch (error) {
-            console.error("Error submitting route:", error);
+        setTimeout(() => {
             setIsSubmitting(false);
-            alert("Ocorreu um erro ao enviar a rota. Tente novamente.");
-        }
+            const newRoute = {
+                ...formData,
+                city: end.city || end.name.split(',')[0],
+                state: end.state,
+                origin: originStr,
+                destination: destStr,
+                waypoints: formData.stops.map(s => s.name),
+                id: Date.now(),
+                xp: Math.round((parseInt(formData.distance) || 10) * (formData.difficulty === 'Expert' ? 2 : formData.difficulty === 'Médio' ? 1.5 : 1)),
+                likes: 0,
+                createdBy: {
+                    name: user?.name || 'Motociclista Anônimo',
+                    avatar: user?.avatar,
+                    level: user?.level,
+                    patches: user?.badges || []
+                }
+            };
+            onRegister(newRoute);
+            onClose();
+        }, 1500);
     };
 
-    // Construct array of queries for the map
+    // Prepare map queries (only for showing existing route if needed, though mostly coordinate based now)
     const mapQueries = formData.stops
-        .filter(s => s.city && s.state)
-        .map(s => `${s.city}, ${s.state}, Brasil`);
+        .filter(s => s.lat && s.lng)
+        .map(s => s.name || `${s.lat}, ${s.lng}`);
 
     if (!isOpen) return null;
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-background-secondary w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                    className="bg-background-secondary w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] supports-[height:100dvh]:max-h-[85dvh]"
                 >
                     <header className="p-4 border-b border-white/10 flex justify-between items-center bg-zinc-900">
                         <h2 className="text-lg font-black text-white flex items-center gap-2">
@@ -214,7 +184,7 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
                         </button>
                     </header>
 
-                    <form id="route-form" onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-4">
+                    <form id="route-form" onSubmit={handleSubmit} className="p-6 pb-12 overflow-y-auto flex-1 space-y-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nome da Rota *</label>
                             <input
@@ -230,76 +200,86 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Distância (Calculada)</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Distância (KM)</label>
                                 <div className="relative">
                                     <input
-                                        type="number"
+                                        type="text"
                                         name="distance"
                                         value={formData.distance}
-                                        onChange={handleChange}
+                                        readOnly
                                         placeholder="0"
                                         className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors"
-                                        readOnly // Preferably read-only if map calculates it
                                     />
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">KM</span>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Dificuldade</label>
-                                <select
-                                    name="difficulty"
-                                    value={formData.difficulty}
-                                    onChange={handleChange}
-                                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors appearance-none cursor-pointer"
-                                >
-                                    {DIFFICULTIES.map(diff => (
-                                        <option key={diff} value={diff} className="bg-gray-900">{diff}</option>
-                                    ))}
-                                </select>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Tempo Estimado</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        name="duration"
+                                        value={formData.duration}
+                                        readOnly
+                                        placeholder="Calculando..."
+                                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors"
+                                    />
+                                    <Clock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                                </div>
                             </div>
                         </div>
 
                         {/* Stops Section */}
                         <div className="space-y-3">
-                            <div className="flex justify-between items-end">
-                                <label className="block text-xs font-bold text-gray-400 uppercase">Trajeto (Cidades)</label>
-                            </div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase">Trajeto</label>
 
                             {formData.stops.map((stop, index) => {
                                 const isFirst = index === 0;
                                 const isLast = index === formData.stops.length - 1;
+                                const isActive = activeStopIndex === index;
+                                const hasLocation = stop.lat !== null;
 
                                 return (
                                     <div key={index} className="flex gap-2 items-center">
                                         <div className="flex flex-col items-center w-6 self-stretch pt-2">
-                                            {/* Visual Connector Line */}
-                                            <div className={`w-3 h-3 rounded-full border-2 z-10 
-                                                ${isFirst ? 'bg-primary border-primary' : isLast ? 'bg-red-500 border-red-500' : 'bg-zinc-800 border-gray-500'}
-                                            `}></div>
+                                            <div
+                                                onClick={() => setActiveStopIndex(index)}
+                                                className={`w-3 h-3 rounded-full border-2 z-10 cursor-pointer transition-all transform
+                                                    ${isActive ? 'scale-125 ring-2 ring-primary/30' : ''}
+                                                    ${isFirst ? 'bg-primary border-primary' : isLast ? 'bg-red-500 border-red-500' : 'bg-zinc-800 border-gray-500'}
+                                                    ${!hasLocation && !isActive ? 'opacity-40' : 'opacity-100'}
+                                                `}
+                                            ></div>
                                             {!isLast && <div className="w-0.5 flex-1 bg-white/10 -mb-2"></div>}
                                         </div>
 
-                                        <div className="flex-1 bg-white/5 rounded-lg border border-white/5 p-2 grid grid-cols-[70px_1fr] gap-2">
-                                            <select
-                                                value={stop.state}
-                                                onChange={(e) => handleStopChange(index, 'state', e.target.value)}
-                                                className="bg-black/20 border border-white/10 rounded p-2 text-sm text-white focus:border-primary focus:outline-none"
-                                            >
-                                                {BRAZIL_STATES.map(uf => (
-                                                    <option key={uf} value={uf} className="bg-gray-900">{uf}</option>
-                                                ))}
-                                            </select>
-                                            <select
-                                                value={stop.city}
-                                                onChange={(e) => handleStopChange(index, 'city', e.target.value)}
-                                                disabled={isLoadingCity[index]}
-                                                className="bg-black/20 border border-white/10 rounded p-2 text-sm text-white focus:border-primary focus:outline-none disabled:opacity-50"
-                                            >
-                                                <option value="" className="bg-gray-900">{isFirst ? 'Onde começa?' : isLast ? 'Onde termina?' : 'Parada...'}</option>
-                                                {(cityOptions[index] || []).map(city => (
-                                                    <option key={city} value={city} className="bg-gray-900">{city}</option>
-                                                ))}
-                                            </select>
+                                        <div
+                                            onClick={() => setActiveStopIndex(index)}
+                                            className={`flex-1 bg-white/5 rounded-lg border p-3 min-h-[50px] flex items-center transition-colors cursor-pointer group
+                                                ${isActive ? 'border-primary/50 bg-primary/10' : 'border-white/5'}
+                                                ${!hasLocation && !isActive ? 'opacity-50' : 'opacity-100'}
+                                            `}
+                                        >
+                                            <div className="flex-1 overflow-hidden">
+                                                {hasLocation ? (
+                                                    <p className="text-sm font-bold text-white truncate">
+                                                        {stop.city || stop.name.split(',')[0]}
+                                                        <span className="block text-[10px] text-gray-400 font-normal truncate opacity-60 group-hover:opacity-100 transition-opacity">
+                                                            {stop.name}
+                                                        </span>
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-sm text-gray-500 italic">
+                                                        {isActive ? (
+                                                            <span className="text-primary flex items-center gap-1 animate-pulse">
+                                                                <MapPin size={12} /> Toque no mapa abaixo...
+                                                            </span>
+                                                        ) : (
+                                                            isFirst ? 'Ponto de Partida' : isLast ? 'Destino Final' : 'Clique para definir...'
+                                                        )}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {!isFirst && !isLast && (
@@ -311,7 +291,7 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
                                                 <Trash2 size={16} />
                                             </button>
                                         )}
-                                        {(isFirst || isLast) && <div className="w-8"></div>} {/* Spacer */}
+                                        {(isFirst || isLast) && <div className="w-8"></div>}
                                     </div>
                                 );
                             })}
@@ -328,15 +308,28 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
 
                         {/* Map Preview */}
                         <div className="mb-3">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Visualização da Rota</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex justify-between">
+                                <span>Mapa Interativo</span>
+                                <span className="text-primary animate-pulse">
+                                    Editando: {activeStopIndex === 0 ? 'Saída' : activeStopIndex === formData.stops.length - 1 ? 'Chegada' : `Parada ${activeStopIndex}`}
+                                </span>
+                            </label>
                             <MapPicker
-                                stops={mapQueries}
+                                initialLat={formData.stops[activeStopIndex]?.lat}
+                                initialLng={formData.stops[activeStopIndex]?.lng}
+                                stops={formData.stops}
+                                onLocationSelected={handleLocationSelected}
                                 onRouteDetailsCalculated={(details) => {
-                                    if (details && details.distance) {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            distance: (details.distance / 1000).toFixed(1)
-                                        }));
+                                    if (details) {
+                                        const dist = (details.distance / 1000).toFixed(1);
+                                        let durationStr = "";
+                                        if (details.duration) {
+                                            const totalMinutes = Math.floor(details.duration / 60);
+                                            const hours = Math.floor(totalMinutes / 60);
+                                            const minutes = totalMinutes % 60;
+                                            durationStr = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+                                        }
+                                        setFormData(prev => ({ ...prev, distance: dist, duration: durationStr }));
                                     }
                                 }}
                             />
@@ -348,10 +341,24 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
                                 name="description"
                                 value={formData.description}
                                 onChange={handleChange}
-                                placeholder="Dicas, pontos de parada, condições da pista..."
+                                placeholder="Dicas, pontos de parada..."
                                 rows={3}
                                 className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors resize-none"
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Dificuldade</label>
+                            <select
+                                name="difficulty"
+                                value={formData.difficulty}
+                                onChange={handleChange}
+                                className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-white focus:border-primary focus:outline-none transition-colors appearance-none cursor-pointer"
+                            >
+                                {DIFFICULTIES.map(diff => (
+                                    <option key={diff} value={diff} className="bg-gray-900">{diff}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div>
@@ -360,7 +367,7 @@ export default function RouteRegistrationModal({ isOpen, onClose, onRegister, ro
                                 type="file"
                                 name="image"
                                 onChange={handleChange}
-                                accept="image/jpeg, image/png, image/webp"
+                                accept="image/*"
                                 className="w-full bg-black/20 border border-white/10 rounded-lg p-3 text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-black hover:file:bg-primary/90 transition-colors"
                             />
                         </div>

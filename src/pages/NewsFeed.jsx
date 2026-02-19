@@ -33,7 +33,7 @@ export default function NewsFeed() {
     }, [news, searchTerm]);
 
     return (
-        <div className="p-6 space-y-6 pb-24">
+        <div className="p-6 space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4 mb-2">
                 <button
@@ -54,7 +54,7 @@ export default function NewsFeed() {
             </div>
 
             {/* Search Bar */}
-            <div className="sticky top-[88px] z-20 -mx-6 px-6 py-4 bg-background/95 backdrop-blur-md border-b border-white/5">
+            <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5 shadow-inner">
                 <div className="relative">
                     <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                     <input

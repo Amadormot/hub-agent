@@ -1,8 +1,8 @@
-import { Share2, Settings, Shield, LayoutDashboard, ArrowLeft, MapPin, Calendar, CheckCircle, Trophy, MessageSquare, ChevronLeft, Baby, Bike, Map, TrendingUp, Sunrise, BatteryCharging, CloudRain, Users, Tent, Crown, Heart, Bookmark } from 'lucide-react';
+import { Share2, Settings, Shield, LayoutDashboard, ArrowLeft, MapPin, Calendar, CheckCircle, Trophy, MessageSquare, ChevronLeft, Baby, Bike, Map, TrendingUp, Sunrise, BatteryCharging, CloudRain, Users, Tent, Crown, Heart, Bookmark, BadgeCheck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { useChat } from '../contexts/ChatContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import LogoutButton from '../components/LogoutButton';
 import { useState } from 'react';
 import ProfileEditModal from '../components/ProfileEditModal';
@@ -12,16 +12,21 @@ import UserListModal from '../components/UserListModal';
 import UserProfileModal from '../components/UserProfileModal';
 import ProfileShareModal from '../components/ProfileShareModal';
 import RouteDetailsModal from '../components/RouteDetailsModal';
+import ShareModal from '../components/ShareModal';
 import { useData } from '../contexts/DataContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { GeolocationService } from '../services/GeolocationService';
+import { calculateDistance, getCurrentPosition } from '../utils/geo';
+import clsx from 'clsx';
 
 import ChatModal from '../components/ChatModal';
 
 export default function Profile() {
 
     const navigate = useNavigate();
-    const { user, profileStats, levelInfo, nextLevelInfo, updateProfileImage, updateClubBadge, activeRoute, startRoute, endRoute, abortRoute, toggleLike, toggleFavorite, toggleLikeEvent, toggleFavoriteEvent } = useUser();
-    const { routes = [], events = [] } = useData();
+    const { user, profileStats, levelInfo, nextLevelInfo, updateProfileImage, updateClubBadge, activeRoute, startRoute, endRoute, abortRoute, toggleLike, toggleFavorite, toggleLikeEvent, toggleFavoriteEvent, checkInEvent, processingCheckIns } = useUser();
+    const { routes = [], events = [], joinEvent } = useData();
+    const { notify } = useNotification();
     const { totalUnread } = useChat();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -34,9 +39,15 @@ export default function Profile() {
     const [detailsEvent, setDetailsEvent] = useState(null);
     const [isShareModalOpenContent, setIsShareModalOpenContent] = useState(false);
     const [shareContent, setShareContent] = useState(null);
+    const [isLocating, setIsLocating] = useState(false);
 
     const { getThreads } = useChat();
     const threads = getThreads();
+
+    const handleOpenUserProfile = (e, targetUser) => {
+        if (e) e.stopPropagation();
+        setViewingUser(targetUser);
+    };
 
     if (!user) return null;
 
@@ -98,22 +109,18 @@ export default function Profile() {
                             />
                         </div>
 
-                        {/* Club Badge (Shield Shape) - Floating at the bottom-right of centered circular avatar */}
+                        {/* Club Badge - Circular */}
                         {user.clubBadge && (
                             <motion.div
                                 initial={{ scale: 0, y: 10 }}
                                 animate={{ scale: 1, y: 0 }}
-                                className="absolute -bottom-4 -right-4 w-16 h-20 bg-primary flex items-center justify-center shadow-2xl z-20"
-                                style={{ clipPath: 'polygon(10% 0%, 90% 0%, 100% 10%, 100% 75%, 50% 100%, 0% 75%, 0% 10%)' }}
+                                className="absolute -bottom-2 -right-2 w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-2xl z-20 border-4 border-background overflow-hidden"
                                 title="Brasão do Moto Clube"
                             >
-                                <div
-                                    className="w-[calc(100%-4px)] h-[calc(100%-4px)] bg-background flex items-center justify-center overflow-hidden"
-                                    style={{ clipPath: 'polygon(10% 0%, 90% 0%, 100% 10%, 100% 75%, 50% 100%, 0% 75%, 0% 10%)' }}
-                                >
+                                <div className="w-full h-full bg-background flex items-center justify-center overflow-hidden">
                                     <img
                                         src={user.clubBadge}
-                                        className="w-full h-full object-contain p-2"
+                                        className="w-full h-full object-cover"
                                         style={{
                                             transform: `scale(${user.badgeFraming?.zoom || 1}) translate(${user.badgeFraming?.x || 0}%, ${user.badgeFraming?.y || 0}%)`
                                         }}
@@ -586,9 +593,269 @@ export default function Profile() {
                 }}
             />
 
-            {/* Event Details Modal logic needed or consistent UI */}
-            {/* For now we reuse the simple one or integration if needed, but the user asked for the list */}
-            {/* Let's at least show a simple detail for events in profile */}
+            {/* Event Details Modal */}
+            <AnimatePresence>
+                {detailsEvent && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-end sm:items-center justify-center sm:p-4"
+                        onClick={() => setDetailsEvent(null)}
+                    >
+                        <motion.div
+                            initial={{ y: "100%", opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: "100%", opacity: 0 }}
+                            transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.8 }}
+                            className="bg-background-secondary border-t sm:border border-white/10 w-full max-w-md sm:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl h-[90vh] supports-[height:100dvh]:h-[90dvh] flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Immersive Header */}
+                            <div className="h-72 relative shrink-0">
+                                <img src={detailsEvent.image} className="w-full h-full object-cover" alt={detailsEvent.title} />
+                                <div className="absolute inset-0 bg-gradient-to-t from-background-secondary via-background-secondary/20 to-transparent"></div>
+
+                                <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20">
+                                    <button
+                                        onClick={() => setDetailsEvent(null)}
+                                        className="bg-black/60 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/20 transition-all active:scale-95 shadow-lg border border-white/10"
+                                    >
+                                        <X size={24} />
+                                    </button>
+
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={(e) => toggleFavoriteEvent(detailsEvent.id)}
+                                            className={clsx(
+                                                "p-2.5 rounded-full backdrop-blur-md transition-all active:scale-95 border shadow-lg",
+                                                user?.favoriteEvents?.includes(String(detailsEvent.id))
+                                                    ? "bg-primary/20 text-primary border-primary/30"
+                                                    : "bg-black/60 text-white border-white/10"
+                                            )}
+                                        >
+                                            <Bookmark size={20} fill={user?.favoriteEvents?.includes(String(detailsEvent.id)) ? "currentColor" : "none"} />
+                                        </button>
+                                        <button
+                                            onClick={() => setIsShareModalOpenContent(true)}
+                                            className="bg-black/60 backdrop-blur-md p-2.5 rounded-full text-white border border-white/10 shadow-lg"
+                                        >
+                                            <Share2 size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="absolute bottom-6 left-6 right-6 z-10">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="bg-primary text-black text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                            {detailsEvent.premium ? 'Destaque' : 'Comunidade'}
+                                        </span>
+                                        <span className="text-white/80 text-xs font-bold flex items-center gap-1">
+                                            <Calendar size={12} className="text-primary" />
+                                            {detailsEvent.date}
+                                        </span>
+                                    </div>
+                                    <h2 className="text-3xl font-black text-white leading-tight drop-shadow-md">{detailsEvent.title || detailsEvent.name}</h2>
+                                </div>
+                            </div>
+
+                            {/* Scrollable Content */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-8 no-scrollbar pb-32">
+                                {/* Location & Info */}
+                                <div className="space-y-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5">
+                                            <MapPin size={20} className="text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Localização</p>
+                                            <p className="text-sm text-gray-200 font-medium">{detailsEvent.location}</p>
+                                        </div>
+                                    </div>
+
+                                    {detailsEvent.startTime && (
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/5">
+                                                <Calendar size={20} className="text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Horário</p>
+                                                <p className="text-sm text-gray-200 font-medium">
+                                                    {detailsEvent.startTime}
+                                                    {detailsEvent.endTime ? ` às ${detailsEvent.endTime}` : ''}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Description */}
+                                <div>
+                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Sobre o Evento</h3>
+                                    <p className="text-gray-400 text-sm leading-relaxed">
+                                        {detailsEvent.description || "Sem descrição disponível."}
+                                    </p>
+                                </div>
+
+                                {/* Organizer */}
+                                {detailsEvent.createdBy && (
+                                    <div>
+                                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-3">Organizador</h3>
+                                        <div
+                                            className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center gap-4 cursor-pointer hover:bg-white/10 transition-all group"
+                                            onClick={(e) => handleOpenUserProfile(e, detailsEvent.createdBy)}
+                                        >
+                                            <div className="relative">
+                                                <img
+                                                    src={detailsEvent.createdBy.avatar}
+                                                    alt={detailsEvent.createdBy.name}
+                                                    className="w-12 h-12 rounded-full border-2 border-primary/30 group-hover:border-primary transition-colors"
+                                                />
+                                                <div className="absolute -bottom-1 -right-1 bg-background-secondary rounded-full p-0.5">
+                                                    <BadgeCheck size={14} className="text-blue-400 fill-blue-400/20" />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-base font-black text-white">{detailsEvent.createdBy.name}</span>
+                                                    {(() => {
+                                                        const patch = getPatchByLevel(detailsEvent.createdBy.level);
+                                                        const PatchIcon = patch ? {
+                                                            "Baby": Baby, "Bike": Bike, "Map": Map, "TrendingUp": TrendingUp,
+                                                            "Sunrise": Sunrise, "BatteryCharging": BatteryCharging, "CloudRain": CloudRain,
+                                                            "Users": Users, "Tent": Tent, "Crown": Crown
+                                                        }[patch.icon] || Shield : Shield;
+
+                                                        const tierColors = detailsEvent.createdBy.level >= 10 ? 'from-yellow-600 to-yellow-900 border-yellow-400' :
+                                                            detailsEvent.createdBy.level >= 7 ? 'from-blue-600 to-blue-900 border-blue-400' :
+                                                                detailsEvent.createdBy.level >= 4 ? 'from-red-600 to-red-900 border-red-400' :
+                                                                    'from-gray-700 to-gray-900 border-gray-500';
+
+                                                        return (
+                                                            <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${tierColors} flex items-center justify-center border shadow-sm`}>
+                                                                <PatchIcon size={12} className="text-white drop-shadow-md" strokeWidth={2.5} />
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                <p className="text-xs text-gray-500 font-medium">Nível {detailsEvent.createdBy.level} • {detailsEvent.createdBy.motorcycle?.brand || 'Motociclista'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Fixed Footer Actions */}
+                            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background-secondary via-background-secondary to-transparent pt-10 border-t border-white/5">
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (!user) {
+                                                notify("Faça login para participar!", "info");
+                                                return;
+                                            }
+
+                                            const isAttending = detailsEvent.attendees?.some(a => String(a.id) === String(user.id));
+                                            const hasCheckedIn = user.pastEvents?.some(e => String(e.id) === String(detailsEvent.id));
+
+                                            if (hasCheckedIn) return;
+
+                                            if (!isAttending) {
+                                                joinEvent(detailsEvent.id, user);
+                                                setDetailsEvent(prev => ({
+                                                    ...prev,
+                                                    attendees: [...(prev.attendees || []), { id: user.id, name: user.name, avatar: user.avatar }]
+                                                }));
+                                                notify("Presença confirmada! Faça o Check-in no local para ganhar XP.", "success");
+                                            } else {
+                                                // Check-in logic
+                                                const now = new Date();
+                                                now.setHours(0, 0, 0, 0);
+                                                let isValidDate = true;
+                                                if (detailsEvent.startDate) {
+                                                    const start = new Date(detailsEvent.startDate + 'T00:00:00');
+                                                    const end = detailsEvent.endDate ? new Date(detailsEvent.endDate + 'T23:59:59') : new Date(detailsEvent.startDate + 'T23:59:59');
+                                                    if (now < start || now > end) isValidDate = false;
+                                                }
+
+                                                if (!isValidDate) {
+                                                    const startStr = new Date(detailsEvent.startDate + 'T00:00:00').toLocaleDateString('pt-BR');
+                                                    notify(`O check-in só é permitido no dia ${startStr}.`, "warning");
+                                                    return;
+                                                }
+
+                                                setIsLocating(true);
+                                                try {
+                                                    const pos = await getCurrentPosition();
+                                                    if (!pos) throw new Error("Posição não encontrada");
+
+                                                    // Re-verify after getting position
+                                                    if (user.pastEvents?.some(pe => String(pe.id) === String(detailsEvent.id))) {
+                                                        return;
+                                                    }
+
+                                                    const distance = calculateDistance(pos.coords.latitude, pos.coords.longitude, detailsEvent.latitude, detailsEvent.longitude);
+                                                    if (distance <= 1) {
+                                                        await checkInEvent(detailsEvent);
+                                                    } else {
+                                                        notify(`Você está a ${distance.toFixed(1)}km. Chegue num raio de 1km para o Check-in.`, "warning");
+                                                    }
+                                                } catch (err) {
+                                                    console.error("Check-in error:", err);
+                                                    notify("Ative o GPS para fazer o check-in.", "error");
+                                                } finally {
+                                                    setIsLocating(false);
+                                                }
+                                            }
+                                        }}
+                                        disabled={user?.pastEvents?.some(e => String(e.id) === String(detailsEvent.id)) || isLocating || processingCheckIns?.has(String(detailsEvent.id))}
+                                        className={clsx(
+                                            "flex-1 font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-3 text-sm uppercase tracking-widest active:scale-95 shadow-xl shadow-primary/20",
+                                            user?.pastEvents?.some(e => String(e.id) === String(detailsEvent.id))
+                                                ? "bg-zinc-800 text-gray-400 cursor-not-allowed border border-white/5 shadow-none"
+                                                : processingCheckIns?.has(String(detailsEvent.id))
+                                                    ? "bg-primary/50 text-black border-none cursor-wait"
+                                                    : detailsEvent.attendees?.some(a => String(a.id) === String(user?.id))
+                                                        ? "bg-primary hover:bg-orange-600 text-black shadow-primary/30"
+                                                        : "bg-white text-black hover:bg-gray-200"
+                                        )}
+                                    >
+                                        {isLocating || processingCheckIns?.has(String(detailsEvent.id)) ? (
+                                            <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                                        ) : user?.pastEvents?.some(e => String(e.id) === String(detailsEvent.id)) ? (
+                                            <>
+                                                <BadgeCheck size={20} />
+                                                Check-in Realizado
+                                            </>
+                                        ) : detailsEvent.attendees?.some(a => String(a.id) === String(user?.id)) ? (
+                                            <>
+                                                <MapPin size={20} fill="currentColor" />
+                                                Fazer Check-in (Local)
+                                            </>
+                                        ) : (
+                                            <>
+                                                <BadgeCheck size={20} />
+                                                Confirmar Presença
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <ShareModal
+                isOpen={isShareModalOpenContent}
+                onClose={() => setIsShareModalOpenContent(false)}
+                onSuccess={() => {
+                    setIsShareModalOpenContent(false);
+                    setDetailsEvent(null);
+                }}
+                content={{ ...detailsEvent, type: 'evento' }}
+            />
         </div >
     );
 }

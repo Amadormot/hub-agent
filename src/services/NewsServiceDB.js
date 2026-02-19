@@ -62,7 +62,7 @@ export const NewsServiceDB = {
                     summary: newsData.summary,
                     content: newsData.content || '',
                     image: newsData.image,
-                    source: newsData.source || 'Moto Hub Admin',
+                    source: newsData.source || 'Jornada Biker Admin',
                     url: newsData.url || '#',
                     author: newsData.author || 'admin',
                     published: newsData.published !== false

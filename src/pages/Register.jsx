@@ -4,6 +4,7 @@ import { useUser } from '../contexts/UserContext';
 import { motion } from 'framer-motion';
 import { Bike } from 'lucide-react';
 import Logo from '../components/Logo';
+import CitySearchInput from '../components/CitySearchInput';
 
 export default function Register() {
     const [name, setName] = useState('');
@@ -101,28 +102,15 @@ export default function Register() {
                         />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-2 space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Cidade</label>
-                            <input
-                                type="text"
-                                value={city}
-                                onChange={(e) => setCity(e.target.value)}
-                                className="w-full bg-background-secondary border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
-                                placeholder="Ex: São Paulo"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">UF</label>
-                            <input
-                                type="text"
-                                value={state}
-                                onChange={(e) => setState(e.target.value.toUpperCase().slice(0, 2))}
-                                className="w-full bg-background-secondary border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors uppercase text-center"
-                                placeholder="SP"
-                                maxLength={2}
-                            />
-                        </div>
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Localização</label>
+                        <CitySearchInput
+                            onSelect={(selectedCity) => {
+                                setCity(selectedCity.nome);
+                                setState(selectedCity.uf);
+                            }}
+                            placeholder="Sua cidade (Ex: São Paulo, SP)"
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
