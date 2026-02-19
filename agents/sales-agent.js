@@ -79,8 +79,8 @@ async function researchProductAssets(keywords, platformId) {
     const domain = platformId === 'amazon' ? 'amazon.com.br' : 'mercadolivre.com.br';
     const siteName = platformId === 'amazon' ? 'Amazon' : 'Mercado Livre';
 
-    // Adicionamos o nome do site na busca para forçar o Bing a trazer esse domínio nos metadados
-    const query = encodeURIComponent(`${keywords} ${siteName} moto product`);
+    // Mira Laser: Usamos site:domain diretamente na busca de imagens para garantir que o link de origem seja o correto
+    const query = encodeURIComponent(`site:${domain} ${keywords} product`);
     const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1`;
 
     try {
