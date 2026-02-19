@@ -107,19 +107,51 @@ async function searchImageOnWeb(keywords) {
     } catch { return null; }
 }
 
-function generateAffiliateLink(productName, platformId) {
+async function researchDirectLink(keywords, platform) {
+    let domain = '';
+    if (platform === 'amazon') domain = 'amazon.com.br';
+    else if (platform === 'mercado_livre') domain = 'mercadolivre.com.br';
+    else if (platform === 'shopee') domain = 'shopee.com.br';
+
+    const query = encodeURIComponent(`site:${domain} ${keywords}`);
+    const url = `https://www.bing.com/search?q=${query}`;
+
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!res.ok) return null;
+        const html = await res.text();
+
+        // Platform specific regex
+        let regex;
+        if (platform === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+dp\/[A-Z0-9]{10}/i;
+        else if (platform === 'mercado_livre') regex = /https?:\/\/www\.mercadolivre\.com\.br\/[^"'\s?]+MLB[^\s"']+/i;
+        else if (platform === 'shopee') regex = /https?:\/\/shopee\.com\.br\/[^"'\s?]+-i\.[0-9]+\.[0-9]+/i;
+
+        const match = html.match(regex);
+        return match ? match[0] : null;
+    } catch { return null; }
+}
+
+function generateAffiliateLink(productName, platformId, directUrl = null) {
     const query = encodeURIComponent(productName);
     const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
 
+    // Se temos um link direto, usamos ele como base
+    const base = directUrl || `${platform.baseUrl}${query}`;
+    const connector = base.includes('?') ? '&' : '?';
+
     if (platform.id === 'amazon') {
-        return `${platform.baseUrl}${query}&tag=${platform.tag}`;
+        return directUrl ? `${base}${connector}tag=${platform.tag}` : `${platform.baseUrl}${query}&tag=${platform.tag}`;
     } else if (platform.id === 'mercado_livre') {
-        return `${platform.baseUrl}${query}?matt_tool=${platform.tag}&matt_word=${platform.word}`;
+        return `${base}${connector}matt_tool=${platform.tag}&matt_word=${platform.word}`;
     } else if (platform.id === 'shopee') {
-        return `${platform.baseUrl}${query}&aff_click_id=${platform.tag}`;
+        return `${base}${connector}aff_click_id=${platform.tag}`;
     }
 
-    return `${platform.baseUrl}${query}`;
+    return base;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -200,6 +232,7 @@ async function main() {
                 }
 
                 const platformId = platforms[Math.floor(Math.random() * platforms.length)];
+                const directUrl = await researchDirectLink(p.name, platformId);
                 const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
 
                 const productRecord = {
@@ -207,7 +240,7 @@ async function main() {
                     price: p.price,
                     image: image,
                     category: category.name,
-                    link: generateAffiliateLink(p.name, platformId),
+                    link: generateAffiliateLink(p.name, platformId, directUrl),
                     description: `${p.description} Seleção exclusiva Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
                     discount: discountValue,
                     source: 'Sales AI Agent',
