@@ -208,7 +208,8 @@ async function main() {
                     image: image,
                     category: category.name,
                     link: generateAffiliateLink(p.name, platformId),
-                    description: `${discountValue ? `[OFERTA: ${discountValue}] ` : ''}${p.description} Seleção exclusiva Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                    description: `${p.description} Seleção exclusiva Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                    discount: discountValue,
                     source: 'Sales AI Agent',
                     active: true
                 };
