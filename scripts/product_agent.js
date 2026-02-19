@@ -192,14 +192,19 @@ async function main() {
         token = await login(email, pass);
     }
 
-    const targetCount = 20;
-    let publishedCount = 0;
+    const targetPerPlatform = 20;
+    const platformStats = {};
+    const platforms = Object.keys(AFFILIATE_CONFIG);
+    platforms.forEach(p => platformStats[p] = 0);
+
+    let totalPublished = 0;
+    const maxTotal = targetPerPlatform * platforms.length;
 
     // Embaralha categorias para diversidade
     const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
 
     for (const category of shuffledCategories) {
-        if (publishedCount >= targetCount) break;
+        if (totalPublished >= maxTotal) break;
 
         console.log(`\n📂 Categoria: ${category.name}`);
 
@@ -207,7 +212,7 @@ async function main() {
         const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
 
         for (const keyword of shuffledKeywords) {
-            if (publishedCount >= targetCount) break;
+            if (totalPublished >= maxTotal) break;
 
             console.log(`🔍 Buscando ofertas para: ${keyword}`);
 
@@ -240,17 +245,15 @@ async function main() {
             const platforms = Object.keys(AFFILIATE_CONFIG);
 
             for (const p of trendingProducts) {
-                if (publishedCount >= targetCount) break;
+                if (totalPublished >= maxTotal) break;
 
-                console.log(`📦 Processando: ${p.name}`);
+                // Seleciona apenas plataformas que ainda não atingiram a meta
+                const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
+                if (availablePlatforms.length === 0) break;
 
-                const image = await searchImageOnWeb(p.name);
-                if (!image) {
-                    console.log('⚠️ Sem imagem, pulando...');
-                    continue;
-                }
+                const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
 
-                const platformId = platforms[Math.floor(Math.random() * platforms.length)];
+                console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
                 const directUrl = await researchDirectLink(p.name, platformId);
                 const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
 
@@ -268,12 +271,14 @@ async function main() {
 
                 if (dryRun) {
                     console.log('🧪 DRY RUN:', productRecord);
-                    publishedCount++;
+                    platformStats[platformId]++;
+                    totalPublished++;
                 } else {
                     try {
                         const result = await supabaseInsert('products', productRecord, token);
                         console.log(`✅ Publicado! ID: ${result.id}`);
-                        publishedCount++;
+                        platformStats[platformId]++;
+                        totalPublished++;
                     } catch (err) {
                         console.error(`❌ Erro ao publicar: ${err.message}`);
                     }
@@ -282,7 +287,8 @@ async function main() {
         }
     }
 
-    console.log(`\n✨ Finalizado! Total de publicações: ${publishedCount}`);
+    console.log(`\n✨ Finalizado! Total de publicações: ${totalPublished}`);
+    console.log('📊 Resumo por plataforma:', platformStats);
 }
 
 main().catch(console.error);
