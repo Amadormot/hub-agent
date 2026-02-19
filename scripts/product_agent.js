@@ -33,11 +33,6 @@ const AFFILIATE_CONFIG = {
         tag: '70089220', // matt_tool extraído do link
         word: 'daamador20220120014514', // matt_word extraído
         baseUrl: 'https://lista.mercadolivre.com.br/'
-    },
-    shopee: {
-        id: 'shopee',
-        tag: 'motohub_shopee', // Simulação de tag
-        baseUrl: 'https://shopee.com.br/search?keyword='
     }
 };
 
@@ -136,7 +131,6 @@ async function researchDirectLink(keywords, platform) {
     let domain = '';
     if (platform === 'amazon') domain = 'amazon.com.br';
     else if (platform === 'mercado_livre') domain = 'mercadolivre.com.br';
-    else if (platform === 'shopee') domain = 'shopee.com.br';
 
     // Busca mais ampla para evitar ser bloqueado ou não achar o site:domain
     const query = encodeURIComponent(`${keywords} ${domain}`);
@@ -154,7 +148,6 @@ async function researchDirectLink(keywords, platform) {
         let regex;
         if (platform === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+dp\/[A-Z0-9]{10}/i;
         else if (platform === 'mercado_livre') regex = /https?:\/\/(produto|www)\.mercadolivre\.com\.br\/[^"'\s?]+MLB[^\s"']+/i;
-        else if (platform === 'shopee') regex = /https?:\/\/shopee\.com\.br\/(product\/|[^"'\s?]+-i\.)[0-9]+[./][0-9]+/i;
 
         const match = html.match(regex);
         return match ? match[0] : null;
@@ -173,8 +166,6 @@ function generateAffiliateLink(productName, platformId, directUrl = null) {
         return directUrl ? `${base}${connector}tag=${platform.tag}` : `${platform.baseUrl}${query}&tag=${platform.tag}`;
     } else if (platform.id === 'mercado_livre') {
         return `${base}${connector}matt_tool=${platform.tag}&matt_word=${platform.word}`;
-    } else if (platform.id === 'shopee') {
-        return `${base}${connector}aff_click_id=${platform.tag}`;
     }
 
     return base;
