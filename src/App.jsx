@@ -7,6 +7,7 @@ import Profile from './pages/Profile';
 import Garagem from './pages/Garagem';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
 import NewsFeed from './pages/NewsFeed';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -46,6 +47,7 @@ function App() {
                 {/* Public Routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
                 {/* Protected Routes */}
                 <Route element={<ProtectedRoute />}>

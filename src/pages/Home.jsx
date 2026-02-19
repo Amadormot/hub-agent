@@ -31,7 +31,8 @@ function timeAgo(dateStr) {
 }
 
 export default function Home() {
-    const { news, events, routes, products, affiliates, joinEvent, allUsers } = useData();
+    const { news, events, routes, products, affiliates, joinEvent, allUsers, refreshData, isLoadingAutomation } = useData();
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const {
         user: currentUser,
         toggleLike: toggleLikeRoute,
@@ -112,8 +113,44 @@ export default function Home() {
         .sort((a, b) => (b.level || 1) - (a.level || 1))
         .slice(0, 10);
 
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await refreshData();
+        setTimeout(() => setIsRefreshing(false), 1000);
+        notify("Radar atualizado!", "success");
+    };
+
     return (
-        <div className="flex flex-col min-h-screen bg-black pb-24">
+        <div className="flex flex-col min-h-screen bg-black pb-24 overflow-x-hidden">
+            {/* Pull to Refresh Indicator */}
+            <motion.div
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 0 }}
+                onDragEnd={(e, info) => {
+                    if (info.offset.y > 100 && !isRefreshing) {
+                        handleRefresh();
+                    }
+                }}
+                className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
+            >
+                <motion.div
+                    animate={{
+                        y: isRefreshing ? 80 : 0,
+                        opacity: isRefreshing ? 1 : 0,
+                        scale: isRefreshing ? 1 : 0.5
+                    }}
+                    className="bg-primary text-black px-4 py-2 rounded-full font-black text-xs uppercase shadow-2xl shadow-primary/40 flex items-center gap-2 border-2 border-white/20"
+                >
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                    >
+                        <Clock size={14} />
+                    </motion.div>
+                    Atualizando Radar...
+                </motion.div>
+            </motion.div>
+
             {/* Background Effects */}
             <div className="fixed top-0 left-0 right-0 h-96 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none z-0"></div>
 

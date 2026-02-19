@@ -301,6 +301,38 @@ export function UserProvider({ children }) {
         }
     };
 
+    const loginWithGoogle = async () => {
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin
+                }
+            });
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error("Google Login error:", error);
+            notify(error.message || "Erro ao entrar com Google", "error");
+            return false;
+        }
+    };
+
+    const resetPassword = async (email) => {
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
+            notify("Link de recuperação enviado para seu e-mail!", "success");
+            return true;
+        } catch (error) {
+            console.error("Reset password error:", error);
+            notify(error.message || "Erro ao enviar e-mail de recuperação", "error");
+            return false;
+        }
+    };
+
     const logout = async () => {
         try {
             const { error } = await supabase.auth.signOut();
@@ -597,6 +629,8 @@ export function UserProvider({ children }) {
             user,
             isLoading,
             login,
+            loginWithGoogle,
+            resetPassword,
             register,
             logout,
             updateProfile,

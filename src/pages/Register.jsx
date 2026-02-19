@@ -16,7 +16,7 @@ export default function Register() {
     const [city, setCity] = useState('');
     const [state, setState] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { register, user } = useUser();
+    const { register, loginWithGoogle, user } = useUser();
     const navigate = useNavigate();
 
     // Redireciona se já estiver logado
@@ -153,9 +153,27 @@ export default function Register() {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95 mt-4 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
                     >
                         {isLoading ? 'Criando conta...' : 'Cadastrar'}
+                    </button>
+
+                    <div className="relative py-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-white/10"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-gray-500 font-bold tracking-widest">Ou</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={loginWithGoogle}
+                        className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold py-3 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                    >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                        Cadastrar com Google
                     </button>
                 </motion.form>
 

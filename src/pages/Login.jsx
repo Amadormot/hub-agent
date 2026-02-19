@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import { useNotification } from '../contexts/NotificationContext';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import Logo from '../components/Logo';
@@ -9,7 +10,8 @@ export default function Login() {
     const [email, setEmail] = useState('agm_jr@outlook.com');
     const [password, setPassword] = useState('Mot@88453251');
     const [isLoading, setIsLoading] = useState(false);
-    const { login, user } = useUser();
+    const { login, loginWithGoogle, resetPassword, user } = useUser();
+    const { notify } = useNotification();
     const navigate = useNavigate();
 
     // Redireciona se já estiver logado
@@ -23,15 +25,11 @@ export default function Login() {
         e.preventDefault();
         setIsLoading(true);
 
-        // Login agora é seguro e gerencia o loading globalmente via onAuthStateChange
-        // O retorno 'success' aqui é apenas para feedback imediato se necessário,
-        // mas a navegação é garantida pelo useEffect acima
         const success = await login(email, password);
 
         setIsLoading(false);
 
         if (success) {
-            // Navegação redundante caso o useEffect demore
             navigate('/');
         }
     };
@@ -87,19 +85,49 @@ export default function Login() {
                     </div>
 
                     <div className="flex justify-end">
-                        <a href="#" className="text-xs text-primary hover:text-orange-400">Esqueceu a senha?</a>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!email) {
+                                    notify("Digite seu e-mail primeiro para recuperar a senha.", "info");
+                                } else {
+                                    resetPassword(email);
+                                }
+                            }}
+                            className="text-xs text-primary hover:text-orange-400 transition-colors"
+                        >
+                            Esqueceu a senha?
+                        </button>
                     </div>
 
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-primary hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
                     >
                         {isLoading ? 'Entrando...' : (
                             <>
                                 Entrar <ArrowRight size={18} />
                             </>
                         )}
+                    </button>
+
+                    <div className="relative py-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-white/10"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-gray-500 font-bold tracking-widest">Ou</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={loginWithGoogle}
+                        className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold py-3 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                    >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                        Acessar com Google
                     </button>
                 </motion.form>
 

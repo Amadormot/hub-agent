@@ -31,41 +31,41 @@ export function DataProvider({ children }) {
     const [isLoadingAutomation, setIsLoadingAutomation] = useState(true);
 
     // Fetch All Data (News + Products)
-    useEffect(() => {
-        const fetchAutomationData = async () => {
-            try {
-                // 1. News
-                const newsData = await NewsAPI.getNews();
-                setNews(newsData);
+    const refreshData = async () => {
+        setIsLoadingAutomation(true);
+        try {
+            // 1. News
+            const newsData = await NewsAPI.getNews();
+            setNews(newsData);
 
-                // 2. Real Products from DB
-                const { ProductAPI } = await import('../services/ProductAPI');
-                const dbProducts = await ProductAPI.getProducts();
+            // 2. Real Products from DB
+            const { ProductAPI } = await import('../services/ProductAPI');
+            const dbProducts = await ProductAPI.getProducts();
 
-                if (dbProducts && dbProducts.length > 0) {
-                    console.log("[DataContext] Products fetched from Supabase:", dbProducts.length);
-                    setProducts(dbProducts);
-                } else {
-                    console.log("[DataContext] No products in DB, using mock.");
-                }
-
-                // 3. Affiliates & Agent (Mock/Simulated)
-                const { NewsService } = await import('../services/NewsService');
-                const affiliatesData = await NewsService.getAffiliates();
-
-                const { ProductService } = await import('../services/ProductService');
-                const agentDeals = await ProductService.getDailyDeals();
-
-                // Merge classic affiliates with Agent's finds
-                setAffiliates([...affiliatesData, ...agentDeals]);
-            } catch (error) {
-                console.error("[DataContext] Failed to fetch data:", error);
-            } finally {
-                setIsLoadingAutomation(false);
+            if (dbProducts && dbProducts.length > 0) {
+                console.log("[DataContext] Products fetched from Supabase:", dbProducts.length);
+                setProducts(dbProducts);
+            } else {
+                // Fallback to initialProducts only if DB is empty
+                setProducts(initialProducts);
             }
-        };
 
-        fetchAutomationData();
+            // 3. Affiliates (Only from DB products now if we want strict affiliation)
+            // But let's keep the NewsService ones if they exist
+            const { NewsService } = await import('../services/NewsService');
+            const affiliatesData = await NewsService.getAffiliates();
+
+            // Filter to only show products with affiliate source in the unified state
+            setAffiliates(affiliatesData || []);
+        } catch (error) {
+            console.error("[DataContext] Failed to fetch data:", error);
+        } finally {
+            setIsLoadingAutomation(false);
+        }
+    };
+
+    useEffect(() => {
+        refreshData();
     }, []);
 
     useEffect(() => {
@@ -306,7 +306,8 @@ export function DataProvider({ children }) {
             confirmPayment,
             joinEvent,
             updateRouteLikes,
-            updateEventLikes
+            updateEventLikes,
+            refreshData
         }}>
             {children}
         </DataContext.Provider>
