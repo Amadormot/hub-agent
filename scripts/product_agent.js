@@ -132,9 +132,12 @@ async function researchProductAssets(keywords, platformId) {
 
                 if (foundImage && foundDirectUrl) break;
             } catch (e) { }
-            // SEGUNDA ONDA: Sniper de Texto (Se a imagem não deu link direto)
-            if (!foundDirectUrl) {
-                const textUrl = `https://www.bing.com/search?q=${encodeURIComponent(`site:${domain} ${keywords}`)}`;
+        }
+
+        // SEGUNDA ONDA: Sniper de Texto (Se a imagem não deu link direto)
+        if (!foundDirectUrl) {
+            const textUrl = `https://www.bing.com/search?q=${encodeURIComponent(`site:${domain} ${keywords}`)}`;
+            try {
                 const textRes = await fetch(textUrl, {
                     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
                     signal: AbortSignal.timeout(5000)
@@ -149,158 +152,159 @@ async function researchProductAssets(keywords, platformId) {
                     const textMatch = textHtml.match(regex);
                     if (textMatch) foundDirectUrl = textMatch[0];
                 }
-            }
+            } catch (e) { }
+        }
 
-            return { image: foundImage, directUrl: foundDirectUrl };
-        } catch { return { image: null, directUrl: null }; }
-    }
+        return { image: foundImage, directUrl: foundDirectUrl };
+    } catch { return { image: null, directUrl: null }; }
+}
 
 function generateAffiliateLink(productName, platformId, directUrl = null) {
-        const query = encodeURIComponent(productName);
-        const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
+    const query = encodeURIComponent(productName);
+    const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
 
-        // Se temos um link direto, usamos ele como base
-        const base = directUrl || `${platform.baseUrl}${query}`;
-        const connector = base.includes('?') ? '&' : '?';
+    // Se temos um link direto, usamos ele como base
+    const base = directUrl || `${platform.baseUrl}${query}`;
+    const connector = base.includes('?') ? '&' : '?';
 
-        if (platform.id === 'amazon') {
-            return directUrl ? `${base}${connector}tag=${platform.tag}` : `${platform.baseUrl}${query}&tag=${platform.tag}`;
-        } else if (platform.id === 'mercado_livre') {
-            return `${base}${connector}matt_tool=${platform.tag}&matt_word=${platform.word}`;
-        }
-
-        return base;
+    if (platform.id === 'amazon') {
+        return directUrl ? `${base}${connector}tag=${platform.tag}` : `${platform.baseUrl}${query}&tag=${platform.tag}`;
+    } else if (platform.id === 'mercado_livre') {
+        return `${base}${connector}matt_tool=${platform.tag}&matt_word=${platform.word}`;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // MAIN LOGIC
-    // ═══════════════════════════════════════════════════════════
+    return base;
+}
 
-    async function main() {
-        const args = process.argv.slice(2);
-        const dryRun = args.includes('--dry-run');
-        const email = process.env.AGENT_EMAIL || args[args.indexOf('--email') + 1];
-        const pass = process.env.AGENT_PASSWORD || args[args.indexOf('--pass') + 1];
+// ═══════════════════════════════════════════════════════════
+// MAIN LOGIC
+// ═══════════════════════════════════════════════════════════
 
-        console.log('🤖 MOTO HUB — AI SALES AGENT starting...');
+async function main() {
+    const args = process.argv.slice(2);
+    const dryRun = args.includes('--dry-run');
+    const email = process.env.AGENT_EMAIL || args[args.indexOf('--email') + 1];
+    const pass = process.env.AGENT_PASSWORD || args[args.indexOf('--pass') + 1];
 
-        let token = null;
-        if (!dryRun) {
-            if (!email || !pass) {
-                console.error('❌ Falta AGENT_EMAIL/AGENT_PASSWORD');
-                process.exit(1);
-            }
-            token = await login(email, pass);
+    console.log('🤖 MOTO HUB — AI SALES AGENT starting...');
+
+    let token = null;
+    if (!dryRun) {
+        if (!email || !pass) {
+            console.error('❌ Falta AGENT_EMAIL/AGENT_PASSWORD');
+            process.exit(1);
         }
+        token = await login(email, pass);
+    }
 
-        const targetPerPlatform = 20;
-        const platformStats = {};
-        const platforms = Object.keys(AFFILIATE_CONFIG);
-        platforms.forEach(p => platformStats[p] = 0);
+    const targetPerPlatform = 20;
+    const platformStats = {};
+    const platforms = Object.keys(AFFILIATE_CONFIG);
+    platforms.forEach(p => platformStats[p] = 0);
 
-        let totalPublished = 0;
-        const maxTotal = targetPerPlatform * platforms.length;
+    let totalPublished = 0;
+    const maxTotal = targetPerPlatform * platforms.length;
 
-        // Embaralha categorias para diversidade
-        const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
+    // Embaralha categorias para diversidade
+    const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
 
-        for (const category of shuffledCategories) {
+    for (const category of shuffledCategories) {
+        if (totalPublished >= maxTotal) break;
+
+        console.log(`\n📂 Categoria: ${category.name}`);
+
+        // Embaralha keywords da categoria
+        const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
+
+        for (const keyword of shuffledKeywords) {
             if (totalPublished >= maxTotal) break;
 
-            console.log(`\n📂 Categoria: ${category.name}`);
+            console.log(`🔍 Buscando ofertas para: ${keyword}`);
 
-            // Embaralha keywords da categoria
-            const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
+            // Variantes por keyword com inteligência de recomendação e preço
+            const variants = [
+                { suffix: 'Original Loja Oficial', priceMult: 1, desc: '⭐ RECOMENDADO: Produto de Loja Oficial com máxima pontualidade e procedência garantida.', intel: '[LOJA OFICIAL ⭐]' },
+                { suffix: 'Pro Edition Elite', priceMult: 1.4, desc: '🏆 TOP DE LINHA: Selecionado entre os mais bem avaliados por motociclistas profissionais.', intel: '[ALTA RECOMENDAÇÃO 🏆]' },
+                { suffix: 'Promoção Imbatível', priceMult: 0.70, desc: '💰 PREÇO BAIXO: A oferta mais barata encontrada hoje com boa reputação do vendedor.', intel: '[OFERTA IMBATÍVEL 💰]' },
+                { suffix: 'Custo-Benefício Real', priceMult: 0.85, desc: '🤝 EQUILÍBRIO: O melhor equilíbrio entre preço justo e satisfação do comprador.', intel: '[MELHOR CUSTO-BENEFÍCIO]' }
+            ];
 
-            for (const keyword of shuffledKeywords) {
+            const pricesPerCategory = {
+                'Equipamentos': { min: 250, max: 1800 },
+                'Acessórios': { min: 50, max: 600 },
+                'Peças': { min: 120, max: 1200 },
+                'Manutenção': { min: 30, max: 150 },
+                'Moda & Estilo': { min: 45, max: 250 },
+                'Super Ofertas 🔥': { min: 40, max: 400 }
+            };
+
+            const catPrice = pricesPerCategory[category.name] || { min: 100, max: 500 };
+            const basePriceNum = Math.floor(Math.random() * (catPrice.max - catPrice.min) + catPrice.min);
+
+            const trendingProducts = variants.map(v => ({
+                name: `${keyword} ${v.suffix}`,
+                price: `R$ ${(basePriceNum * v.priceMult).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                description: `${v.desc} Ideal para sua jornada sobre duas rodas.`
+            }));
+
+            const platforms = Object.keys(AFFILIATE_CONFIG);
+
+            for (const p of trendingProducts) {
                 if (totalPublished >= maxTotal) break;
 
-                console.log(`🔍 Buscando ofertas para: ${keyword}`);
+                // Seleciona apenas plataformas que ainda não atingiram a meta
+                const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
+                if (availablePlatforms.length === 0) break;
 
-                // Variantes por keyword com inteligência de recomendação e preço
-                const variants = [
-                    { suffix: 'Original Loja Oficial', priceMult: 1, desc: '⭐ RECOMENDADO: Produto de Loja Oficial com máxima pontualidade e procedência garantida.', intel: '[LOJA OFICIAL ⭐]' },
-                    { suffix: 'Pro Edition Elite', priceMult: 1.4, desc: '🏆 TOP DE LINHA: Selecionado entre os mais bem avaliados por motociclistas profissionais.', intel: '[ALTA RECOMENDAÇÃO 🏆]' },
-                    { suffix: 'Promoção Imbatível', priceMult: 0.70, desc: '💰 PREÇO BAIXO: A oferta mais barata encontrada hoje com boa reputação do vendedor.', intel: '[OFERTA IMBATÍVEL 💰]' },
-                    { suffix: 'Custo-Benefício Real', priceMult: 0.85, desc: '🤝 EQUILÍBRIO: O melhor equilíbrio entre preço justo e satisfação do comprador.', intel: '[MELHOR CUSTO-BENEFÍCIO]' }
-                ];
+                const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
 
-                const pricesPerCategory = {
-                    'Equipamentos': { min: 250, max: 1800 },
-                    'Acessórios': { min: 50, max: 600 },
-                    'Peças': { min: 120, max: 1200 },
-                    'Manutenção': { min: 30, max: 150 },
-                    'Moda & Estilo': { min: 45, max: 250 },
-                    'Super Ofertas 🔥': { min: 40, max: 400 }
+                console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
+
+                const { image, directUrl } = await researchProductAssets(keyword, platformId);
+                if (!image) {
+                    console.log('⚠️ Sem imagem, pulando...');
+                    continue;
+                }
+
+                const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
+
+                if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
+                console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
+
+                const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
+
+                const productRecord = {
+                    name: p.name,
+                    price: p.price,
+                    image: image,
+                    category: category.name,
+                    link: affiliateLink,
+                    description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                    discount: discountValue,
+                    source: 'Sales AI Agent',
+                    active: true
                 };
 
-                const catPrice = pricesPerCategory[category.name] || { min: 100, max: 500 };
-                const basePriceNum = Math.floor(Math.random() * (catPrice.max - catPrice.min) + catPrice.min);
-
-                const trendingProducts = variants.map(v => ({
-                    name: `${keyword} ${v.suffix}`,
-                    price: `R$ ${(basePriceNum * v.priceMult).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                    description: `${v.desc} Ideal para sua jornada sobre duas rodas.`
-                }));
-
-                const platforms = Object.keys(AFFILIATE_CONFIG);
-
-                for (const p of trendingProducts) {
-                    if (totalPublished >= maxTotal) break;
-
-                    // Seleciona apenas plataformas que ainda não atingiram a meta
-                    const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
-                    if (availablePlatforms.length === 0) break;
-
-                    const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
-
-                    console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
-
-                    const { image, directUrl } = await researchProductAssets(keyword, platformId);
-                    if (!image) {
-                        console.log('⚠️ Sem imagem, pulando...');
-                        continue;
-                    }
-
-                    const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
-
-                    if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
-                    console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
-
-                    const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
-
-                    const productRecord = {
-                        name: p.name,
-                        price: p.price,
-                        image: image,
-                        category: category.name,
-                        link: affiliateLink,
-                        description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
-                        discount: discountValue,
-                        source: 'Sales AI Agent',
-                        active: true
-                    };
-
-                    if (dryRun) {
-                        console.log('🧪 DRY RUN:', productRecord);
+                if (dryRun) {
+                    console.log('🧪 DRY RUN:', productRecord);
+                    platformStats[platformId]++;
+                    totalPublished++;
+                } else {
+                    try {
+                        const result = await supabaseInsert('products', productRecord, token);
+                        console.log(`✅ Publicado! ID: ${result.id}`);
                         platformStats[platformId]++;
                         totalPublished++;
-                    } else {
-                        try {
-                            const result = await supabaseInsert('products', productRecord, token);
-                            console.log(`✅ Publicado! ID: ${result.id}`);
-                            platformStats[platformId]++;
-                            totalPublished++;
-                        } catch (err) {
-                            console.error(`❌ Erro ao publicar: ${err.message}`);
-                        }
+                    } catch (err) {
+                        console.error(`❌ Erro ao publicar: ${err.message}`);
                     }
                 }
             }
         }
-
-        console.log(`\n✨ Finalizado! Total de publicações: ${totalPublished}`);
-        console.log('📊 Resumo por plataforma:', platformStats);
     }
 
-    main().catch(console.error);
+    console.log(`\n✨ Finalizado! Total de publicações: ${totalPublished}`);
+    console.log('📊 Resumo por plataforma:', platformStats);
+}
+
+main().catch(console.error);
