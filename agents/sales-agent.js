@@ -127,8 +127,8 @@ async function researchDirectLink(keywords, platform) {
         // Platform specific regex
         let regex;
         if (platform === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+dp\/[A-Z0-9]{10}/i;
-        else if (platform === 'mercado_livre') regex = /https?:\/\/www\.mercadolivre\.com\.br\/[^"'\s?]+MLB[^\s"']+/i;
-        else if (platform === 'shopee') regex = /https?:\/\/shopee\.com\.br\/[^"'\s?]+-i\.[0-9]+\.[0-9]+/i;
+        else if (platform === 'mercado_livre') regex = /https?:\/\/(produto|www)\.mercadolivre\.com\.br\/[^"'\s?]+MLB[^\s"']+/i;
+        else if (platform === 'shopee') regex = /https?:\/\/shopee\.com\.br\/(product\/|[^"'\s?]+-i\.)[0-9]+[./][0-9]+/i;
 
         const match = html.match(regex);
         return match ? match[0] : null;
