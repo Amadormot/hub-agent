@@ -81,35 +81,50 @@ async function supabaseInsert(table, record, token) {
 }
 
 async function searchImageOnWeb(keywords) {
-    const query = encodeURIComponent(keywords + ' white background');
+    const query = encodeURIComponent(keywords + ' moto product');
     const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1`;
 
     try {
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' },
             signal: AbortSignal.timeout(8000)
         });
         if (!res.ok) return null;
         const html = await res.text();
 
-        // Pattern 1: Bing murl (Inside the JSON data of the image results)
-        // We look for "murl":"URL" and avoid known placeholders
-        const matches = html.matchAll(/"murl":"(https?:\/\/[^"]+)"/gi);
-        const blacklist = ['bing.com', 'facebook_sharing', 'logo', 'icon', 'placeholder', 'advertisement'];
+        // Blacklist de logos e lixo
+        const blacklist = ['bing.com', 'facebook', 'logo', 'icon', 'placeholder', 'advertisement', 'sharing'];
 
-        for (const match of matches) {
-            const imgUrl = match[1].replace(/\\u002f/g, '/');
-            if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
-                return imgUrl;
+        // Pattern 1: Bing murl (JSON stringified)
+        // O Bing costuma codificar como "murl":"https://..." ou murl&quot;:&quot;https://...
+        const murlPatterns = [
+            /"murl":"(https?:\/\/[^"]+)"/gi,
+            /murl&quot;:&quot;(https?:\/\/[^&]+)&quot;/gi
+        ];
+
+        for (const pattern of murlPatterns) {
+            const matches = html.matchAll(pattern);
+            for (const match of matches) {
+                let imgUrl = match[1].replace(/\\u002f/g, '/').replace(/&amp;/g, '&');
+                if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
+                    return imgUrl;
+                }
             }
         }
 
-        // Pattern 2: Typical img src (last resort, still avoiding blacklist)
-        const imgMatches = html.matchAll(/src="(https?:\/\/[^"]+\.(jpg|jpeg|png|webp))"/gi);
-        for (const match of imgMatches) {
-            const imgUrl = match[1];
-            if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
-                return imgUrl;
+        // Pattern 2: Capturar qualquer link de imagem grande
+        const genericPatterns = [
+            /https?:\/\/[^"'\s<>]+?\.(jpg|jpeg|png|webp)/gi
+        ];
+
+        for (const pattern of genericPatterns) {
+            const matches = html.matchAll(pattern);
+            for (const match of matches) {
+                let imgUrl = match[0];
+                // Filtro de tamanho mínimo aproximado (evitar thumbs)
+                if (imgUrl.length > 40 && !blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
+                    return imgUrl;
+                }
             }
         }
 
