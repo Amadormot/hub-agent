@@ -118,8 +118,9 @@ export default function Garagem() {
                                     <h3 className="font-bold text-xs text-white mb-2 line-clamp-2 leading-tight group-hover:text-primary transition-colors">{product.name}</h3>
 
                                     <div className="mt-auto pt-2">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-sm font-black text-primary uppercase">{product.price}</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-[10px] text-primary font-bold uppercase">R$</span>
+                                            <span className="text-xl font-black text-white">{product.price.replace('R$', '').trim()}</span>
                                         </div>
 
                                         <button

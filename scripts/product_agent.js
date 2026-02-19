@@ -159,6 +159,36 @@ async function researchProductAssets(keywords, platformId) {
     } catch { return { image: null, directUrl: null }; }
 }
 
+async function scrapeRealPrice(url, platformId) {
+    if (!url) return null;
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(8000)
+        });
+        if (!res.ok) return null;
+        const html = await res.text();
+
+        let price = null;
+        if (platformId === 'mercado_livre') {
+            const metaPrice = /<meta itemprop="price" content="([\d.]+)"/.exec(html);
+            if (metaPrice) price = `R$ ${parseFloat(metaPrice[1]).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            else {
+                const spanPrice = /class="andes-money-amount__fraction"[^>]*>([\d.]+)</.exec(html);
+                if (spanPrice) price = `R$ ${spanPrice[1].replace('.', ',')}`;
+            }
+        } else if (platformId === 'amazon') {
+            const amazonPrice = /class="a-offscreen"[^>]*>R\$\s?([\d.,]+)</.exec(html);
+            if (amazonPrice) price = `R$ ${amazonPrice[1].trim()}`;
+            else {
+                const wholePrice = /class="a-price-whole"[^>]*>([\d.,]+)/.exec(html);
+                if (wholePrice) price = `R$ ${wholePrice[1].trim()}`;
+            }
+        }
+        return price;
+    } catch (e) { return null; }
+}
+
 function generateAffiliateLink(productName, platformId, directUrl = null) {
     const query = encodeURIComponent(productName);
     const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
@@ -252,16 +282,17 @@ async function main() {
                     continue;
                 }
 
+                // Preço Real
+                let realPrice = await scrapeRealPrice(directUrl, platformId);
                 const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
 
                 if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
+                if (realPrice) console.log(`💰 Preço Extraído Real: ${realPrice}`);
                 console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
-
-                const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
 
                 const productRecord = {
                     name: p.name,
-                    price: p.price,
+                    price: realPrice || 'CONFIRA NA LOJA',
                     image: image,
                     category: category.name,
                     link: affiliateLink,
