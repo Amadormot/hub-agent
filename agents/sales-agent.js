@@ -75,83 +75,64 @@ async function supabaseInsert(table, record, token) {
     return Array.isArray(data) ? data[0] : data;
 }
 
-async function searchImageOnWeb(keywords) {
+async function researchProductAssets(keywords, platformId) {
     const query = encodeURIComponent(keywords + ' moto product');
     const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1`;
+    const domain = platformId === 'amazon' ? 'amazon.com.br' : 'mercadolivre.com.br';
 
     try {
         const res = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' },
             signal: AbortSignal.timeout(8000)
         });
-        if (!res.ok) return null;
+        if (!res.ok) return { image: null, directUrl: null };
         const html = await res.text();
 
-        // Blacklist de logos e lixo
         const blacklist = ['bing.com', 'facebook', 'logo', 'icon', 'placeholder', 'advertisement', 'sharing'];
 
-        // Pattern 1: Bing murl (JSON stringified)
-        // O Bing costuma codificar como "murl":"https://..." ou murl&quot;:&quot;https://...
-        const murlPatterns = [
-            /"murl":"(https?:\/\/[^"]+)"/gi,
-            /murl&quot;:&quot;(https?:\/\/[^&]+)&quot;/gi
-        ];
+        // Pattern: m="{...}" na tag <a> ou similar
+        const matches = [...html.matchAll(/m=\"({[^\"]+})\"/gi)];
 
-        for (const pattern of murlPatterns) {
-            const matches = html.matchAll(pattern);
-            for (const match of matches) {
-                let imgUrl = match[1].replace(/\\u002f/g, '/').replace(/&amp;/g, '&');
-                if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
-                    return imgUrl;
+        let foundImage = null;
+        let foundDirectUrl = null;
+
+        for (const m of matches) {
+            try {
+                const jsonStr = m[1].replace(/&quot;/g, '"');
+                const data = JSON.parse(jsonStr);
+
+                // 1. Validar imagem
+                if (!foundImage) {
+                    let imgUrl = data.murl.split('¿¿')[0]; // Pega a primeira parte se estiver sujo
+                    if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
+                        foundImage = imgUrl;
+                    }
                 }
-            }
+
+                // 2. Validar Link Direto (purl ou strings no murl)
+                if (!foundDirectUrl) {
+                    const potentialUrls = [data.purl, ...data.murl.split('¿¿')];
+                    for (const u of potentialUrls) {
+                        if (u && u.includes(domain)) {
+                            // Check patterns
+                            if (platformId === 'amazon' && u.includes('/dp/')) {
+                                foundDirectUrl = u;
+                                break;
+                            }
+                            if (platformId === 'mercado_livre' && (u.includes('MLB') || u.includes('/p/MLB'))) {
+                                foundDirectUrl = u;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (foundImage && foundDirectUrl) break;
+            } catch (e) { }
         }
 
-        // Pattern 2: Capturar qualquer link de imagem grande
-        const genericPatterns = [
-            /https?:\/\/[^"'\s<>]+?\.(jpg|jpeg|png|webp)/gi
-        ];
-
-        for (const pattern of genericPatterns) {
-            const matches = html.matchAll(pattern);
-            for (const match of matches) {
-                let imgUrl = match[0];
-                // Filtro de tamanho mínimo aproximado (evitar thumbs)
-                if (imgUrl.length > 40 && !blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
-                    return imgUrl;
-                }
-            }
-        }
-
-        return null;
-    } catch { return null; }
-}
-
-async function researchDirectLink(keywords, platform) {
-    let domain = '';
-    if (platform === 'amazon') domain = 'amazon.com.br';
-    else if (platform === 'mercado_livre') domain = 'mercadolivre.com.br';
-
-    // Busca super específica para link direto
-    const query = encodeURIComponent(`site:${domain} "${keywords}"`);
-    const url = `https://www.bing.com/search?q=${query}`;
-
-    try {
-        const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(8000)
-        });
-        if (!res.ok) return null;
-        const html = await res.text();
-
-        // Platform specific regex
-        let regex;
-        if (platform === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+dp\/[A-Z0-9]{10}/i;
-        else if (platform === 'mercado_livre') regex = /https?:\/\/(produto|articulo|www)\.mercadolivre\.com\.br\/[^"'\s?]+MLB[^\s"']+/i;
-
-        const match = html.match(regex);
-        return match ? match[0] : null;
-    } catch { return null; }
+        return { image: foundImage, directUrl: foundDirectUrl };
+    } catch { return { image: null, directUrl: null }; }
 }
 
 function generateAffiliateLink(productName, platformId, directUrl = null) {
@@ -255,12 +236,15 @@ async function main() {
 
                 console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
 
-                const image = await searchImageOnWeb(p.name);
+                const { image, directUrl } = await researchProductAssets(keyword, platformId);
                 if (!image) {
                     console.log('⚠️ Sem imagem, pulando...');
                     continue;
                 }
-                const directUrl = await researchDirectLink(keyword, platformId);
+
+                if (directUrl) console.log(`🎯 Link Sniper Ativado: ${directUrl}`);
+                else console.log(`⚠️ Link direto não encontrado para "${keyword}", usando busca fallback.`);
+
                 const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
 
                 const productRecord = {
@@ -268,7 +252,7 @@ async function main() {
                     price: p.price,
                     image: image,
                     category: category.name,
-                    link: generateAffiliateLink(p.name, platformId, directUrl),
+                    link: generateAffiliateLink(keyword, platformId, directUrl),
                     description: `${p.intel || ''} ${p.description} Seleção inteligente Moto Hub via ${platformId.replace('_', ' ').toUpperCase()}.`,
                     discount: discountValue,
                     source: 'Sales AI Agent',
