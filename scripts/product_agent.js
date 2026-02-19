@@ -254,6 +254,12 @@ async function main() {
                 const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
 
                 console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
+
+                const image = await searchImageOnWeb(p.name);
+                if (!image) {
+                    console.log('⚠️ Sem imagem, pulando...');
+                    continue;
+                }
                 const directUrl = await researchDirectLink(p.name, platformId);
                 const discountValue = Math.random() > 0.4 ? `${Math.floor(Math.random() * 25 + 5)}% OFF` : null;
 
