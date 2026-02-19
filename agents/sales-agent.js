@@ -92,17 +92,26 @@ async function searchImageOnWeb(keywords) {
         if (!res.ok) return null;
         const html = await res.text();
 
-        // Pattern 1: Bing murl
-        const murlMatch = html.match(/"murl":"(https?:\/\/[^"]+)"/i);
-        if (murlMatch) return murlMatch[1].replace(/\\u002f/g, '/');
+        // Pattern 1: Bing murl (Inside the JSON data of the image results)
+        // We look for "murl":"URL" and avoid known placeholders
+        const matches = html.matchAll(/"murl":"(https?:\/\/[^"]+)"/gi);
+        const blacklist = ['bing.com', 'facebook_sharing', 'logo', 'icon', 'placeholder', 'advertisement'];
 
-        // Pattern 2: Typical img src
-        const imgMatch = html.match(/src="(https?:\/\/[^"]+\.(jpg|jpeg|png|webp))"/i);
-        if (imgMatch) return imgMatch[1];
+        for (const match of matches) {
+            const imgUrl = match[1].replace(/\\u002f/g, '/');
+            if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
+                return imgUrl;
+            }
+        }
 
-        // Pattern 3: Any https link that looks like an image
-        const anyImgMatch = html.match(/(https?:\/\/[^"'\s]+\.(jpg|jpeg|png|webp))/i);
-        if (anyImgMatch) return anyImgMatch[1];
+        // Pattern 2: Typical img src (last resort, still avoiding blacklist)
+        const imgMatches = html.matchAll(/src="(https?:\/\/[^"]+\.(jpg|jpeg|png|webp))"/gi);
+        for (const match of imgMatches) {
+            const imgUrl = match[1];
+            if (!blacklist.some(b => imgUrl.toLowerCase().includes(b))) {
+                return imgUrl;
+            }
+        }
 
         return null;
     } catch { return null; }
