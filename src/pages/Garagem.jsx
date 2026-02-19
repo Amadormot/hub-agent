@@ -95,12 +95,6 @@ export default function Garagem() {
                             <div className="aspect-[4/5] relative overflow-hidden bg-white/5">
                                 <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
 
-                                {/* Discount Badge */}
-                                {product.discount && (
-                                    <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-xl z-20">
-                                        {product.discount}
-                                    </div>
-                                )}
 
                                 {/* Category Chip */}
                                 <div className="absolute bottom-3 left-3 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white font-bold border border-white/10 flex items-center gap-1 z-20 uppercase tracking-tighter">
@@ -115,9 +109,8 @@ export default function Garagem() {
                                 <h3 className="font-bold text-xs text-white mb-2 line-clamp-2 leading-tight group-hover:text-primary transition-colors">{product.name}</h3>
 
                                 <div className="mt-auto pt-2">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase">R$</span>
-                                        <span className="text-lg font-black text-white">{product.price.replace('R$', '').trim()}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-sm font-black text-primary uppercase">{product.price}</span>
                                     </div>
 
                                     <button

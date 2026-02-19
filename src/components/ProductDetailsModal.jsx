@@ -43,11 +43,6 @@ export default function ProductDetailsModal({ product, isOpen, onClose, onBuy })
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-background-secondary via-transparent to-transparent"></div>
 
-                                {product.discount && (
-                                    <div className="absolute top-6 left-6 bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-2xl">
-                                        OFERTA: {product.discount}
-                                    </div>
-                                )}
                             </div>
 
                             {/* Info Section */}
@@ -94,21 +89,6 @@ export default function ProductDetailsModal({ product, isOpen, onClose, onBuy })
                                     </div>
                                 )}
 
-                                {/* Features / Trust Badges */}
-                                <div className="grid grid-cols-3 gap-2 mb-8">
-                                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <ShieldCheck className="text-primary mb-1" size={18} />
-                                        <span className="text-[8px] font-black text-gray-500 uppercase text-center">Garantia Original</span>
-                                    </div>
-                                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <Truck className="text-blue-400 mb-1" size={18} />
-                                        <span className="text-[8px] font-black text-gray-500 uppercase text-center">Entrega Rápida</span>
-                                    </div>
-                                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <Clock className="text-green-400 mb-1" size={18} />
-                                        <span className="text-[8px] font-black text-gray-500 uppercase text-center">Oferta por Tempo</span>
-                                    </div>
-                                </div>
 
                                 {/* CTA Button */}
                                 <a
@@ -123,8 +103,8 @@ export default function ProductDetailsModal({ product, isOpen, onClose, onBuy })
                                 >
                                     IR PARA LOJA PARCEIRA <ExternalLink size={20} />
                                 </a>
-                                <p className="text-[9px] text-gray-600 text-center mt-4 font-bold">
-                                    Ao comprar por este link, você apoia o Moto Hub Brasil sem pagar nada a mais por isso.
+                                <p className="text-[10px] text-gray-500 text-center mt-4 font-bold">
+                                    Ao comprar por este link você apoia o 'Jornada Biker' sem pagar nada a mais por isso.
                                 </p>
                             </div>
                         </div>
