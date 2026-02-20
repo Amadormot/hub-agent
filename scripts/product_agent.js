@@ -189,6 +189,28 @@ async function scrapeRealPrice(url, platformId) {
     } catch (e) { return null; }
 }
 
+async function researchDirectLink(keywords, platformId) {
+    const domain = platformId === 'amazon' ? 'amazon.com.br' : 'mercadolivre.com.br';
+    const query = encodeURIComponent(`site:${domain} ${keywords}`);
+    const url = `https://www.bing.com/search?q=${query}`;
+
+    try {
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(5000)
+        });
+        if (!res.ok) return null;
+        const html = await res.text();
+
+        let regex;
+        if (platformId === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+?\/dp\/[A-Z0-9]{10}/i;
+        else if (platformId === 'mercado_livre') regex = /https?:\/\/www\.mercadolivre\.com\.br\/[^"'\s?]+?MLB[^\s"']+/i;
+
+        const match = html.match(regex);
+        return match ? match[0] : null;
+    } catch { return null; }
+}
+
 function generateAffiliateLink(productName, platformId, directUrl = null) {
     const query = encodeURIComponent(productName);
     const platform = AFFILIATE_CONFIG[platformId] || AFFILIATE_CONFIG.amazon;
@@ -276,23 +298,42 @@ async function main() {
 
                 console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
 
-                const { image, directUrl } = await researchProductAssets(keyword, platformId);
+                // BUSCA BLINDADA
+                const searchKeyword = `${keyword} motociclismo`;
+                const { image, directUrl } = await researchProductAssets(searchKeyword, platformId);
                 if (!image) {
                     console.log('⚠️ Sem imagem, pulando...');
                     continue;
                 }
 
-                // Preço Real
+                // FILTRO DE RELEVÂNCIA
+                const blacklist = ['stitch', 'disney', 'infantil', 'brinquedo', 'lego'];
+                if (blacklist.some(b => p.name.toLowerCase().includes(b))) {
+                    console.log(`❌ Bloqueio de Relevância: ${p.name}`);
+                    continue;
+                }
+
+                // Preço Real (POLÍTICA DE TOLERÂNCIA ZERO)
                 let realPrice = await scrapeRealPrice(directUrl, platformId);
+                if (!realPrice || realPrice.includes('VER PRECO')) {
+                    const fallbackUrl = await researchDirectLink(searchKeyword, platformId);
+                    realPrice = await scrapeRealPrice(fallbackUrl, platformId);
+                }
+
+                if (!realPrice || realPrice === 'VER PREÇO NA LOJA' || realPrice === 'CONFIRA NA LOJA') {
+                    console.log(`🚫 REJEITADO: Sem preço real para ${p.name}.`);
+                    continue;
+                }
+
                 const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
 
                 if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
-                if (realPrice) console.log(`💰 Preço Extraído Real: ${realPrice}`);
+                console.log(`💰 Preço Confirmado: ${realPrice}`);
                 console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
 
                 const productRecord = {
                     name: p.name,
-                    price: realPrice || 'CONFIRA NA LOJA',
+                    price: realPrice,
                     image: image,
                     category: category.name,
                     link: affiliateLink,

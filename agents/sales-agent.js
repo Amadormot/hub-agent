@@ -189,34 +189,26 @@ async function scrapeRealPrice(url, platformId) {
     } catch (e) { return null; }
 }
 
-async function scrapeRealPrice(url, platformId) {
-    if (!url) return null;
+async function researchDirectLink(keywords, platformId) {
+    const domain = platformId === 'amazon' ? 'amazon.com.br' : 'mercadolivre.com.br';
+    const query = encodeURIComponent(`site:${domain} ${keywords}`);
+    const url = `https://www.bing.com/search?q=${query}`;
+
     try {
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(8000)
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(5000)
         });
         if (!res.ok) return null;
         const html = await res.text();
 
-        let price = null;
-        if (platformId === 'mercado_livre') {
-            const metaPrice = /<meta itemprop="price" content="([\d.]+)"/.exec(html);
-            if (metaPrice) price = `R$ ${parseFloat(metaPrice[1]).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            else {
-                const spanPrice = /class="andes-money-amount__fraction"[^>]*>([\d.]+)</.exec(html);
-                if (spanPrice) price = `R$ ${spanPrice[1].replace('.', ',')}`;
-            }
-        } else if (platformId === 'amazon') {
-            const amazonPrice = /class="a-offscreen"[^>]*>R\$\s?([\d.,]+)</.exec(html);
-            if (amazonPrice) price = `R$ ${amazonPrice[1].trim()}`;
-            else {
-                const wholePrice = /class="a-price-whole"[^>]*>([\d.,]+)/.exec(html);
-                if (wholePrice) price = `R$ ${wholePrice[1].trim()}`;
-            }
-        }
-        return price;
-    } catch (e) { return null; }
+        let regex;
+        if (platformId === 'amazon') regex = /https?:\/\/www\.amazon\.com\.br\/[^"'\s?]+?\/dp\/[A-Z0-9]{10}/i;
+        else if (platformId === 'mercado_livre') regex = /https?:\/\/www\.mercadolivre\.com\.br\/[^"'\s?]+?MLB[^\s"']+/i;
+
+        const match = html.match(regex);
+        return match ? match[0] : null;
+    } catch { return null; }
 }
 
 function generateAffiliateLink(productName, platformId, directUrl = null) {
@@ -306,23 +298,46 @@ async function main() {
 
                 console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
 
-                const { image, directUrl } = await researchProductAssets(keyword, platformId);
+                // BUSCA BLINDADA: Adicionamos contexto para evitar itens irrelevantes
+                const searchKeyword = `${keyword} motociclismo`;
+                const { image, directUrl } = await researchProductAssets(searchKeyword, platformId);
+
                 if (!image) {
                     console.log('⚠️ Sem imagem, pulando...');
                     continue;
                 }
 
-                // Extração de Preço Real
+                // FILTRO DE RELEVÂNCIA: Evitar termos genéricos ou infantis se o mestre reclamou
+                const blacklist = ['stitch', 'disney', 'infantil', 'brinquedo', 'lego'];
+                if (blacklist.some(b => p.name.toLowerCase().includes(b))) {
+                    console.log(`❌ Bloqueio de Relevância: ${p.name}`);
+                    continue;
+                }
+
+                // EXTRAÇÃO DE PREÇO REAL (TRAVA DE SEGURANÇA)
                 let realPrice = await scrapeRealPrice(directUrl, platformId);
+
+                // Se falhou no link direto, tenta o fallback pelo Sniper Direct antes de desistir
+                if (!realPrice || realPrice.includes('VER PRECO')) {
+                    const fallbackUrl = await researchDirectLink(searchKeyword, platformId);
+                    realPrice = await scrapeRealPrice(fallbackUrl, platformId);
+                }
+
+                // POLÍTICA DE TOLERÂNCIA ZERO: Não tem preço? Não publica.
+                if (!realPrice || realPrice === 'VER PREÇO NA LOJA' || realPrice === 'CONFIRA NA LOJA') {
+                    console.log(`🚫 REJEITADO: Preço real não encontrado para ${p.name}.`);
+                    continue;
+                }
+
                 const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
 
                 if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
-                if (realPrice) console.log(`💰 Preço Extraído Real: ${realPrice}`);
+                console.log(`💰 Preço Confirmado: ${realPrice}`);
                 console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
 
                 const productRecord = {
                     name: p.name,
-                    price: realPrice || 'CONFIRA NA LOJA',
+                    price: realPrice,
                     image: image,
                     category: category.name,
                     link: affiliateLink,
@@ -339,7 +354,7 @@ async function main() {
                 } else {
                     try {
                         const result = await supabaseInsert('products', productRecord, token);
-                        console.log(`✅ Publicado! ID: ${result.id}`);
+                        console.log(`✅ Publicado com Preço Real! ID: ${result.id} | Valor: ${realPrice}`);
                         platformStats[platformId]++;
                         totalPublished++;
                     } catch (err) {
