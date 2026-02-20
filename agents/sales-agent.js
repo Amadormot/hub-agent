@@ -204,14 +204,17 @@ async function scrapeProductData(url, platformId) {
                 if (ogTitle) title = ogTitle[1].trim();
             }
         } else if (platformId === 'amazon') {
-            const amazonPrice = /class="a-offscreen"[^>]*>R\$\s?([\d.,]+)</.exec(html);
+            const amazonPrice = /class=\"a-offscreen\"[^>]*>R\$\s?([\d.,]+)</.exec(html);
             if (amazonPrice) price = `R$ ${amazonPrice[1].trim()}`;
             else {
-                const wholePrice = /class="a-price-whole"[^>]*>([\d.,]+)/.exec(html);
-                if (wholePrice) price = `R$ ${wholePrice[1].trim()}`;
+                const wholePrice = /class=\"a-price-whole\"[^>]*>([\d.,]+)/.exec(html);
+                const fractionPrice = /class=\"a-price-fraction\"[^>]*>([\d,]+)/.exec(html);
+                if (wholePrice) {
+                    price = `R$ ${wholePrice[1].trim()}${fractionPrice ? ',' + fractionPrice[1] : ''}`;
+                }
             }
 
-            const amazonTitle = /id="productTitle"[^>]*>([^<]+)</.exec(html);
+            const amazonTitle = /id=\"productTitle\"[^>]*>([^<]+)</.exec(html);
             if (amazonTitle) title = amazonTitle[1].trim();
         }
 
@@ -304,11 +307,25 @@ async function main() {
     let totalPublished = 0;
     const maxTotal = targetPerPlatform * platforms.length;
     let iteration = 0;
-    const maxIterations = 5; // Segurança para não rodar infinito
+    const maxIterations = 10; // Aumentado para garantir meta difícil (Amazon)
+
+    const searchVariations = [
+        'motociclismo loja oficial',
+        'capacete jaqueta luva bota',
+        'acessórios moto premium',
+        'equipamento motociclista original',
+        'peças moto oficial',
+        'oferta motociclismo',
+        'promoção moto rider',
+        'loja oficial moto racing',
+        'pneu moto original',
+        'intercomunicador bauleto moto'
+    ];
 
     while (totalPublished < maxTotal && iteration < maxIterations) {
+        const variation = searchVariations[iteration % searchVariations.length];
         iteration++;
-        console.log(`\n🔄 RODADA DE PESQUISA #${iteration} (Meta: ${totalPublished}/${maxTotal})`);
+        console.log(`\n🔄 RODADA DE PESQUISA #${iteration} (Meta: ${totalPublished}/${maxTotal}) | Variação: ${variation}`);
 
         // Embaralha categorias para diversidade
         const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
@@ -325,12 +342,15 @@ async function main() {
                 // Seleciona plataforma carente
                 const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
                 if (availablePlatforms.length === 0) break;
-                const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
+
+                // Prioriza plataforma mais atrasada
+                availablePlatforms.sort((a, b) => platformStats[a] - platformStats[b]);
+                const platformId = availablePlatforms[0];
 
                 console.log(`🔍 [${category.name}] Meta ${platformId}: ${platformStats[platformId]}/20 | Keyword: ${keyword}`);
 
-                // BUSCA BLINDADA (Loja Oficial + Nicho)
-                const searchKeyword = `${keyword} motociclismo loja oficial`;
+                // BUSCA BLINDADA (Variação de busca para fugir de rebaixamento)
+                const searchKeyword = `${keyword} ${variation}`;
                 const { image, directUrl } = await researchProductAssets(searchKeyword, platformId);
 
                 if (!image || !directUrl) {
