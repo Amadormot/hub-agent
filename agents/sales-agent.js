@@ -82,6 +82,16 @@ async function supabaseInsert(table, record, token) {
     return Array.isArray(data) ? data[0] : data;
 }
 
+async function fetchExistingProducts() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/products?select=name,link&limit=200&order=created_at.desc`, {
+            headers: HEADERS_BASE
+        });
+        if (!res.ok) return [];
+        return await res.json();
+    } catch { return []; }
+}
+
 async function researchProductAssets(keywords, platformId) {
     const domain = platformId === 'amazon' ? 'amazon.com.br' : 'mercadolivre.com.br';
     const siteName = platformId === 'amazon' ? 'Amazon' : 'Mercado Livre';
@@ -275,6 +285,17 @@ async function main() {
         token = await login(email, pass);
     }
 
+    const existingProducts = await fetchExistingProducts();
+    const sessionMemory = new Set();
+
+    // Alimenta a memória com o que já está no banco
+    existingProducts.forEach(p => {
+        if (p.name) sessionMemory.add(p.name.toLowerCase().trim());
+        if (p.link) sessionMemory.add(p.link.split('?')[0].toLowerCase().trim());
+    });
+
+    console.log(`🧠 Memória carregada: ${sessionMemory.size} itens conhecidos.`);
+
     const targetPerPlatform = 20;
     const platformStats = {};
     const platforms = Object.keys(AFFILIATE_CONFIG);
@@ -282,94 +303,81 @@ async function main() {
 
     let totalPublished = 0;
     const maxTotal = targetPerPlatform * platforms.length;
+    let iteration = 0;
+    const maxIterations = 5; // Segurança para não rodar infinito
 
-    // Embaralha categorias para diversidade
-    const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
+    while (totalPublished < maxTotal && iteration < maxIterations) {
+        iteration++;
+        console.log(`\n🔄 RODADA DE PESQUISA #${iteration} (Meta: ${totalPublished}/${maxTotal})`);
 
-    for (const category of shuffledCategories) {
-        if (totalPublished >= maxTotal) break;
+        // Embaralha categorias para diversidade
+        const shuffledCategories = [...PRODUCT_CATEGORIES].sort(() => Math.random() - 0.5);
 
-        console.log(`\n📂 Categoria: ${category.name}`);
-
-        // Embaralha keywords da categoria
-        const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
-
-        for (const keyword of shuffledKeywords) {
+        for (const category of shuffledCategories) {
             if (totalPublished >= maxTotal) break;
 
-            console.log(`🔍 Buscando ofertas para: ${keyword}`);
+            // Embaralha keywords da categoria
+            const shuffledKeywords = [...category.keywords].sort(() => Math.random() - 0.5);
 
-            // Variantes por keyword apenas para nome e descrição (Sem cálculo de preço)
-            const variants = [
-                { suffix: 'Original', desc: 'Item selecionado para sua jornada sobre duas rodas.', intel: '[SELEÇÃO PREMIUM]' },
-                { suffix: 'Premium', desc: 'Alta qualidade e durabilidade comprovada por motociclistas.', intel: '[RECOMENDADO]' }
-            ];
-
-            const trendingProducts = variants.map(v => ({
-                name: `${keyword} ${v.suffix}`,
-                price: 'VER PREÇO NA LOJA',
-                description: `${v.desc}`
-            }));
-
-            const platforms = Object.keys(AFFILIATE_CONFIG);
-
-            for (const p of trendingProducts) {
+            for (const keyword of shuffledKeywords) {
                 if (totalPublished >= maxTotal) break;
 
-                // Seleciona apenas plataformas que ainda não atingiram a meta
+                // Seleciona plataforma carente
                 const availablePlatforms = platforms.filter(id => platformStats[id] < targetPerPlatform);
                 if (availablePlatforms.length === 0) break;
-
                 const platformId = availablePlatforms[Math.floor(Math.random() * availablePlatforms.length)];
 
-                console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
+                console.log(`🔍 [${category.name}] Meta ${platformId}: ${platformStats[platformId]}/20 | Keyword: ${keyword}`);
 
                 // BUSCA BLINDADA (Loja Oficial + Nicho)
                 const searchKeyword = `${keyword} motociclismo loja oficial`;
                 const { image, directUrl } = await researchProductAssets(searchKeyword, platformId);
 
-                if (!image) {
-                    console.log('⚠️ Sem imagem, pulando...');
+                if (!image || !directUrl) {
+                    console.log('⚠️ Ativos incompletos, pulando...');
                     continue;
                 }
 
-                // FILTRO DE RELEVÂNCIA (Blacklist + Whitelist de Nicho)
-                const blacklist = ['stitch', 'disney', 'infantil', 'brinquedo', 'lego', 'kids'];
-                if (blacklist.some(b => p.name.toLowerCase().includes(b))) {
-                    console.log(`❌ Bloqueio de Blacklist: ${p.name}`);
+                // DEDUPLICAÇÃO DE URL
+                const urlClean = directUrl.split('?')[0].toLowerCase().trim();
+                if (sessionMemory.has(urlClean)) {
+                    console.log('🔁 Duplicata detectada (URL), pulando...');
                     continue;
                 }
 
                 // EXTRAÇÃO DE DADOS REAIS
                 let { price: realPrice, title: realTitle } = await scrapeProductData(directUrl, platformId);
 
-                // Fallback pelo Sniper Direct
                 if (!realPrice || !realTitle) {
                     const fallbackUrl = await researchDirectLink(searchKeyword, platformId);
-                    const fallbackData = await scrapeProductData(fallbackUrl, platformId);
-                    realPrice = fallbackData.price;
-                    realTitle = fallbackData.title;
+                    if (fallbackUrl) {
+                        const fallbackData = await scrapeProductData(fallbackUrl, platformId);
+                        realPrice = fallbackData.price;
+                        realTitle = fallbackData.title;
+                    }
                 }
 
-                // POLÍTICA DE CURADORIA DE ELITE (Whitelist de Nicho)
+                // DEDUPLICAÇÃO DE NOME & VALIDAÇÃO
                 if (realTitle) {
-                    const isNiche = NICHE_WHITELIST.some(w => realTitle.toLowerCase().includes(w));
+                    const nameLower = realTitle.toLowerCase().trim();
+                    if (sessionMemory.has(nameLower)) {
+                        console.log(`🔁 Duplicata detectada (Nome): ${realTitle}`);
+                        continue;
+                    }
+
+                    const isNiche = NICHE_WHITELIST.some(w => nameLower.includes(w));
                     if (!isNiche) {
-                        console.log(`🚫 REJEITADO (Nicho): Título "${realTitle}" não parece ser de motociclismo.`);
+                        console.log(`🚫 REJEITADO (Nicho): ${realTitle}`);
                         continue;
                     }
                 }
 
                 if (!realPrice || !realTitle) {
-                    console.log(`🚫 REJEITADO (Dados): Informações incompletas para ${keyword}.`);
+                    console.log('🚫 REJEITADO (Dados Incompletos)');
                     continue;
                 }
 
                 const affiliateLink = generateAffiliateLink(realTitle, platformId, directUrl);
-
-                if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
-                console.log(`🏷️ Nome Real: ${realTitle}`);
-                console.log(`💰 Preço Confirmado: ${realPrice}`);
 
                 const productRecord = {
                     name: realTitle,
@@ -377,22 +385,26 @@ async function main() {
                     image: image,
                     category: category.name,
                     link: affiliateLink,
-                    description: `${p.description} Seleção inteligente Jornada Biker via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                    description: `Destaque em ${category.name}. Qualidade e durabilidade para motociclistas. Seleção Jornada Biker via ${platformId.toUpperCase()}.`,
                     discount: null,
                     source: 'Sales AI Agent',
                     active: true
                 };
 
                 if (dryRun) {
-                    console.log('🧪 DRY RUN:', productRecord);
+                    console.log('🧪 DRY RUN:', realTitle, realPrice);
                     platformStats[platformId]++;
                     totalPublished++;
+                    sessionMemory.add(urlClean);
+                    sessionMemory.add(realTitle.toLowerCase().trim());
                 } else {
                     try {
                         const result = await supabaseInsert('products', productRecord, token);
-                        console.log(`✅ Publicado! ID: ${result.id} | ${realTitle} | ${realPrice}`);
+                        console.log(`✅ Publicado! ID: ${result.id} | ${realTitle}`);
                         platformStats[platformId]++;
                         totalPublished++;
+                        sessionMemory.add(urlClean);
+                        sessionMemory.add(realTitle.toLowerCase().trim());
                     } catch (err) {
                         console.error(`❌ Erro ao publicar: ${err.message}`);
                     }
