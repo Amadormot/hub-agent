@@ -14,7 +14,6 @@ export default function NewsManager() {
     const [isImportOpen, setIsImportOpen] = useState(false);
     const [importJson, setImportJson] = useState('');
     const [importStatus, setImportStatus] = useState(null);
-    const [isAgentConfirmOpen, setIsAgentConfirmOpen] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -167,20 +166,6 @@ export default function NewsManager() {
                     <p className="text-xs text-gray-500 mt-1">Publique e gerencie o feed de notícias</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => {
-                            const token = import.meta.env.VITE_GITHUB_ACTOR_TOKEN;
-                            if (!token) {
-                                notify("Token do GitHub não configurado! Adicione VITE_GITHUB_ACTOR_TOKEN no arquivo .env", 'error');
-                                return;
-                            }
-                            setIsAgentConfirmOpen(true);
-                        }}
-                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 border border-blue-500/30"
-                    >
-                        <span className="text-base">🤖</span>
-                        Executar Agente
-                    </button>
                     <button
                         onClick={() => setIsFormOpen(true)}
                         className="bg-primary hover:bg-orange-600 text-black px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95"
@@ -502,77 +487,6 @@ export default function NewsManager() {
                 )}
             </AnimatePresence>
 
-            {/* Agent Confirmation Modal */}
-            <AnimatePresence>
-                {isAgentConfirmOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-                            onClick={() => setIsAgentConfirmOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-background-secondary w-full max-w-md rounded-2xl border border-white/10 overflow-hidden shadow-2xl relative z-10"
-                        >
-                            <div className="p-6 text-center">
-                                <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <span className="text-4xl">🤖</span>
-                                </div>
-                                <h3 className="text-xl font-bold text-white mb-2">Executar Agente de Notícias?</h3>
-                                <p className="text-sm text-gray-400 mb-6">
-                                    O agente irá buscar e publicar até 5 notícias de hoje sobre motos de fontes brasileiras.
-                                </p>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => setIsAgentConfirmOpen(false)}
-                                        className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-xl transition-all"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        onClick={async () => {
-                                            setIsAgentConfirmOpen(false);
-                                            setLoading(true);
-
-                                            try {
-                                                const token = import.meta.env.VITE_GITHUB_ACTOR_TOKEN;
-                                                const res = await fetch('https://api.github.com/repos/Amadormot/hub-agent/actions/workflows/news-agent.yml/dispatches', {
-                                                    method: 'POST',
-                                                    headers: {
-                                                        'Authorization': `Bearer ${token}`,
-                                                        'Accept': 'application/vnd.github.v3+json',
-                                                        'Content-Type': 'application/json',
-                                                    },
-                                                    body: JSON.stringify({ ref: 'master' })
-                                                });
-
-                                                if (res.ok) {
-                                                    notify("Agente disparado! 🚀 Aguarde alguns minutos para ver as notícias.", 'success');
-                                                    setTimeout(() => loadNews(), 2000);
-                                                } else {
-                                                    notify(`Erro ao disparar agente: ${res.status}`, 'error');
-                                                }
-                                            } catch (e) {
-                                                notify(`Erro de conexão: ${e.message}`, 'error');
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }}
-                                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all"
-                                    >
-                                        Executar Agora
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
         </div>
     );
 }

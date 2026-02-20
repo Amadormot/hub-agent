@@ -57,6 +57,12 @@ export function DataProvider({ children }) {
 
             // Filter to only show products with affiliate source in the unified state
             setAffiliates(affiliatesData || []);
+            // 4. All Users from DB
+            const { UserService } = await import('../services/UserService');
+            const dbUsers = await UserService.getAllUsers();
+            if (dbUsers && dbUsers.length > 0) {
+                setDbUsers(dbUsers);
+            }
         } catch (error) {
             console.error("[DataContext] Failed to fetch data:", error);
         } finally {
@@ -218,6 +224,7 @@ export function DataProvider({ children }) {
 
     // Unified User List (Mock + Creators + Self + Admin)
     const [allUsers, setAllUsers] = useState([]);
+    const [dbUsers, setDbUsers] = useState([]);
     const [adminUser, setAdminUser] = useState(null);
 
     // Fetch Admin User data for payments
@@ -263,13 +270,19 @@ export function DataProvider({ children }) {
             }
         });
 
-        // 4. Add admin user if found
+        // 4. Add users from DB
+        dbUsers.forEach(u => {
+            const id = String(u.id);
+            if (!userMap.has(id)) userMap.set(id, u);
+        });
+
+        // 5. Add admin user if found
         if (adminUser) {
             userMap.set(String(adminUser.id), adminUser);
         }
 
         setAllUsers(Array.from(userMap.values()));
-    }, [routes, events, adminUser]);
+    }, [routes, events, adminUser, dbUsers]);
 
     // Sorting Logic
     const sortedRoutes = useMemo(() => {

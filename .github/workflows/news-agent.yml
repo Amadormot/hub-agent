@@ -2,8 +2,7 @@ name: Moto Hub News Agent
 
 on:
   schedule:
-    - cron: '0 11 * * *'
-    - cron: '0 21 * * *'
+    - cron: '0 */2 * * *'
 
   workflow_dispatch:
     inputs:
@@ -14,7 +13,7 @@ on:
       dry_run:
         description: 'Modo simulacao (nao publica)'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 jobs:

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, ShoppingBag, ExternalLink, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../contexts/DataContext';
@@ -18,9 +18,20 @@ export default function Garagem() {
     const categories = ['Todos', 'Equipamentos', 'Peças', 'Acessórios', 'Manutenção', 'Moda & Estilo'];
     const platforms = ['Todos', 'Amazon', 'Mercado Livre'];
 
-    const getPriceValue = (priceStr) => {
-        if (!priceStr) return 0;
-        const cleaned = priceStr.replace('R$', '').replace('.', '').replace(',', '.').trim();
+    const getPriceValue = (price) => {
+        if (price === null || price === undefined) return 0;
+        if (typeof price === 'number') return price;
+
+        const priceStr = String(price);
+
+        // Robust cleaning for Brazilian currency format R$ 1.250,50
+        const cleaned = priceStr
+            .replace(/R\$/g, '')
+            .replace(/\s/g, '')
+            .replace(/\./g, '')
+            .replace(/,/g, '.')
+            .trim();
+
         return parseFloat(cleaned) || 0;
     };
 
@@ -41,10 +52,10 @@ export default function Garagem() {
         });
 
         // Sorting
-        return result.sort((a, b) => {
+        return [...result].sort((a, b) => { // Use spread to avoid mutating original filter result
             if (sortBy === 'price_asc') return getPriceValue(a.price) - getPriceValue(b.price);
             if (sortBy === 'price_desc') return getPriceValue(b.price) - getPriceValue(a.price);
-            return 0; // 'recent' is default by DB order
+            return 0; // 'recent' maintains the order from products state (API/Store)
         });
     }, [products, selectedCategory, searchTerm, selectedPlatform, sortBy]);
 
@@ -68,7 +79,7 @@ export default function Garagem() {
                     <h2 className="text-2xl font-black text-white flex items-center gap-2">
                         MINHA <span className="text-primary text-3xl italic">GARAGEM</span>
                     </h2>
-                    <p className="text-gray-500 text-xs italic uppercase tracking-widest">Marketplace de Afiliados Moto Hub</p>
+                    <p className="text-gray-500 text-xs italic uppercase tracking-widest">Ao comprar por este link você apoia o Jornada Biker sem pagar nada a mais por isso.</p>
                 </div>
 
                 {/* Search Bar */}

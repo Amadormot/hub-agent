@@ -12,6 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         persistSession: true, // Re-enabled after fixing issues
         storageKey: 'moto_hub_auth_v2', // New key to avoid old conflicts
         autoRefreshToken: true,
-        detectSessionInUrl: false
+        detectSessionInUrl: true
     },
 });

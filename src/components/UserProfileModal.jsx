@@ -130,7 +130,7 @@ export default function UserProfileModal({ user: initialUser, isOpen, onClose })
                                         {currentUser.premium && <Shield size={16} className="text-premium fill-premium" />}
                                     </h2>
                                     <p className="text-gray-400 text-xs mt-1 uppercase tracking-widest font-bold text-center">
-                                        {currentUser.bio || "Motociclista apaixonado • Roda do Sol"}
+                                        {currentUser.bio}
                                     </p>
 
                                     {currentUser.motorcycle && currentUser.motorcycle.brand && (

@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase';
 import { UserService } from '../services/UserService';
 import { getCurrentPosition } from '../utils/geo';
 import NotificationService from '../services/NotificationService';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 const UserContext = createContext();
 
@@ -59,6 +61,37 @@ export function UserProvider({ children }) {
         };
 
         initializeAuth();
+
+        // [ADDED] Deep Link Listener for OAuth Redirects
+        const setupDeepLinks = async () => {
+            if (Capacitor.isNativePlatform()) {
+                App.addListener('appUrlOpen', async (data) => {
+                    console.log('App opened with URL:', data.url);
+                    // Handle OAuth redirect
+                    if (data.url.includes('access_token') || data.url.includes('error')) {
+                        const url = new URL(data.url);
+                        // Convert # fragment to ? search params for URLSearchParams if needed
+                        let searchParams = url.search;
+                        if (!searchParams && url.hash) {
+                            searchParams = '?' + url.hash.substring(1);
+                        }
+                        const params = new URLSearchParams(searchParams);
+                        const accessToken = params.get('access_token');
+                        const refreshToken = params.get('refresh_token');
+
+                        if (accessToken && refreshToken) {
+                            const { error } = await supabase.auth.setSession({
+                                access_token: accessToken,
+                                refresh_token: refreshToken
+                            });
+                            if (error) console.error('Error setting session from deep link:', error);
+                            else console.log('Session set successfully from deep link');
+                        }
+                    }
+                });
+            }
+        };
+        setupDeepLinks();
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -303,10 +336,15 @@ export function UserProvider({ children }) {
 
     const loginWithGoogle = async () => {
         try {
+            const isNative = Capacitor.isNativePlatform();
+            const redirectTo = isNative
+                ? 'com.motohub.app://login-callback'
+                : window.location.origin;
+
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: window.location.origin
+                    redirectTo: redirectTo
                 }
             });
             if (error) throw error;

@@ -17,6 +17,8 @@ import RouteCard from '../components/RouteCard';
 import EventCard from '../components/EventCard';
 import ShareModal from '../components/ShareModal';
 import PullToRefresh from '../components/PullToRefresh';
+import ProductDetailsModal from '../components/ProductDetailsModal';
+import NewsDetailsModal from '../components/NewsDetailsModal';
 
 function timeAgo(dateStr) {
     if (!dateStr) return '';
@@ -32,7 +34,7 @@ function timeAgo(dateStr) {
 }
 
 export default function Home() {
-    const { news, events, routes, products, affiliates, joinEvent, allUsers, refreshData, isLoadingAutomation } = useData();
+    const { news, events, routes, products, affiliates, joinEvent, allUsers, refreshData, isLoadingAutomation, registerSale } = useData();
     const [isRefreshing, setIsRefreshing] = useState(false);
     const {
         user: currentUser,
@@ -55,6 +57,8 @@ export default function Home() {
     const [viewingUser, setViewingUser] = useState(null);
     const [viewingRoute, setViewingRoute] = useState(null);
     const [viewingEvent, setViewingEvent] = useState(null);
+    const [viewingProduct, setViewingProduct] = useState(null);
+    const [viewingNews, setViewingNews] = useState(null);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [shareContent, setShareContent] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
@@ -94,14 +98,36 @@ export default function Home() {
 
             // Random Banner Injection (every ~5 items)
             if (finalFeed.length > 0 && finalFeed.length % 5 === 0) {
-                finalFeed.push({
-                    id: `banner-${finalFeed.length}`,
-                    feedType: 'banner',
-                    title: "Destaque seu Evento",
-                    description: "Alcance milhares de motociclistas com anúncios premium no Moto Hub Brasil.",
-                    image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1000",
-                    actionLabel: "Ver Planos"
-                });
+                const banners = [
+                    {
+                        id: `banner-event-${finalFeed.length}`,
+                        feedType: 'banner',
+                        title: "Destaque seu Evento",
+                        description: "Alcance milhares de motociclistas com anúncios premium no Moto Hub Brasil.",
+                        image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1000",
+                        actionLabel: "Ver Planos",
+                        link: "/profile"
+                    },
+                    {
+                        id: `banner-store-${finalFeed.length}`,
+                        feedType: 'banner',
+                        title: "Sua Loja na Garagem",
+                        description: "Quer vender seus produtos aqui? Entre em contato para integração de afiliados.",
+                        image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1000",
+                        actionLabel: "Anunciar",
+                        link: "/garagem"
+                    },
+                    {
+                        id: `banner-club-${finalFeed.length}`,
+                        feedType: 'banner',
+                        title: "Crie seu Motoclube",
+                        description: "Organize seus membros, rotas e eventos em um só lugar.",
+                        image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1000",
+                        actionLabel: "Começar",
+                        link: "/profile"
+                    }
+                ];
+                finalFeed.push(banners[Math.floor(Math.random() * banners.length)]);
             }
         }
 
@@ -231,8 +257,9 @@ export default function Home() {
                         <motion.div
                             key={`${item.feedType}-${item.id}-${index}`}
                             onClick={() => {
-                                if (item.feedType === 'event') setViewingEvent(item);
-                                if (item.feedType === 'route') setViewingRoute(item);
+                                if (item.feedType === 'news') setViewingNews(item);
+                                if (item.feedType === 'product') setViewingProduct(item);
+                                if (item.feedType === 'banner') navigate(item.link || '/');
                             }}
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -297,14 +324,14 @@ export default function Home() {
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (item.feedType === 'news') window.open(item.url, '_blank');
-                                            if (item.feedType === 'product') window.open(item.link || '#', '_blank');
-                                            if (item.feedType === 'banner') notify("Em breve: Planos Premium!", "info");
+                                            if (item.feedType === 'news') setViewingNews(item);
+                                            if (item.feedType === 'product') setViewingProduct(item);
+                                            if (item.feedType === 'banner') navigate(item.link || '/');
                                         }}
                                         className="h-12 px-6 rounded-2xl bg-white text-black font-black uppercase text-[10px] tracking-widest hover:bg-primary transition-all active:scale-95 shadow-xl shadow-white/5"
                                     >
                                         {item.feedType === 'news' ? 'Ler mais' :
-                                            item.feedType === 'product' ? 'Comprar' : 'Saiba Mais'}
+                                            item.feedType === 'product' ? 'Ver Oferta' : 'Saiba Mais'}
                                     </button>
                                 </div>
                             </div>
@@ -367,6 +394,22 @@ export default function Home() {
                     setShareContent({ ...ev, type: 'evento' });
                     setIsShareModalOpen(true);
                 }}
+            />
+
+            <ProductDetailsModal
+                product={viewingProduct}
+                isOpen={!!viewingProduct}
+                onClose={() => setViewingProduct(null)}
+                onBuy={(e, p) => {
+                    registerSale(p);
+                    // notify("Link de afiliado ativado!", "success"); // Optional toast here too
+                }}
+            />
+
+            <NewsDetailsModal
+                news={viewingNews}
+                isOpen={!!viewingNews}
+                onClose={() => setViewingNews(null)}
             />
 
             <ShareModal

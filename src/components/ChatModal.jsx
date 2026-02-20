@@ -129,10 +129,6 @@ export default function ChatModal({ isOpen, onClose, recipient }) {
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-black text-white">{recipient.name}</h3>
-                                    <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                        Online
-                                    </p>
                                 </div>
                             </div>
                             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors hidden sm:block">

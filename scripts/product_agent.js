@@ -37,19 +37,21 @@ const AFFILIATE_CONFIG = {
 };
 
 const PRODUCT_CATEGORIES = [
-    { name: 'Equipamentos', keywords: ['Capacete LS2 Rapid', 'Jaqueta Alpinestars T-GP', 'Luva X11 Fit X', 'Bota Macboot Moto', 'Capacete MT Stinger', 'Capacete Shark D-Skwal', 'Jaqueta LS2 Alba', 'Luva Alpinestars SP-8', 'Bota Alpine Stars SMX', 'Capacete Bell Qualifier'] },
-    { name: 'Acessórios', keywords: ['Intercomunicador Ejeas V6 Pro', 'Suporte Celular Alumínio', 'Baú Bauleto Givi 45L', 'Cadeado Corrente Moto High Security', 'Antena Corta-Pipa Inox', 'Protetor de Motor Scam', 'Afastador de Alforge', 'Bolha Esportiva', 'Slider de Motor', 'Protetor de Punho'] },
-    { name: 'Peças', keywords: ['Pneu Metzeler Karoo Street', 'Kit Relação Vaz Gold', 'Pastilha Freio Cobreq Racing', 'Filtro Ar Lavável', 'Escapamento Esportivo Yoshimura', 'Vela Iridium NGK', 'Amortecedor de Direção', 'Pedaleira Esportiva', 'Manete Esportivo Retrátil', 'Disco de Freio Wave'] },
-    { name: 'Manutenção', keywords: ['Kit Limpeza Motul C1 C4', 'Graxa Branca Spray', 'Capa de Chuva Pantaneiro', 'Carregador Bateria Inteligente', 'Cera para Proteção Pintura', 'Óleo Repsol 10W40', 'Escova Limpeza Corrente', 'Kit Reparo Pneu Sem Câmara', 'Elevador Hidráulico Moto'] },
-    { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog', 'Bandana Tubular Rider', 'Camiseta Harley Davidson', 'Jaqueta Jeans Proteção Moto', 'Óculos Motociclista Retro'] },
-    { name: 'Super Ofertas 🔥', keywords: ['Capacete Axxis Draken', 'Intercomunicador FreedConn T-Com', 'Luva de Couro Monster X', 'Kit Transmissão DID Gold', 'Jaqueta Motoqueiro Cordura', 'Bota de Couro Impermeável', 'Suporte GPS Moto Pro', 'Capa para Moto Térmica', 'Trava de Disco com Alarme'] }
+    { name: 'Equipamentos', keywords: ['Capacete LS2 Rapid', 'Jaqueta Alpinestars T-GP', 'Luva X11 Fit X', 'Bota Macboot Moto', 'Capacete MT Stinger', 'Capacete Shark D-Skwal', 'Jaqueta LS2 Alba', 'Luva Alpinestars SP-8', 'Bota Alpine Stars SMX', 'Capacete Bell Qualifier', 'Capacete HJC i70', 'Jaqueta Revit Eclipse', 'Luva Tutto Moto', 'Bota Dainese Street'] },
+    { name: 'Acessórios', keywords: ['Intercomunicador Ejeas V6 Pro', 'Suporte Celular Alumínio', 'Baú Bauleto Givi 45L', 'Cadeado Corrente Moto High Security', 'Antena Corta-Pipa Inox', 'Protetor de Motor Scam', 'Afastador de Alforge', 'Bolha Esportiva', 'Slider de Motor', 'Protetor de Punho', 'Suporte Alforge SCAM', 'Tomada USB Moto Impermeável', 'Rede Elástica Aranha'] },
+    { name: 'Peças', keywords: ['Pneu Metzeler Karoo Street', 'Kit Relação Vaz Gold', 'Pastilha Freio Cobreq Racing', 'Filtro Ar Lavável', 'Escapamento Esportivo Yoshimura', 'Vela Iridium NGK', 'Amortecedor de Direção', 'Pedaleira Esportiva', 'Manete Esportivo Retrátil', 'Disco de Freio Wave', 'Bateria Yuasa Moto', 'Lâmpada LED Philips Moto'] },
+    { name: 'Manutenção', keywords: ['Kit Limpeza Motul C1 C4', 'Graxa Branca Spray', 'Capa de Chuva Pantaneiro', 'Carregador Bateria Inteligente', 'Cera para Proteção Pintura', 'Óleo Repsol 10W40', 'Escova Limpeza Corrente', 'Kit Reparo Pneu Sem Câmara', 'Elevador Hidráulico Moto', 'Cavalete Central Moto', 'Graxa Náutica para Corrente'] },
+    { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog', 'Bandana Tubular Rider', 'Camiseta Harley Davidson', 'Jaqueta Jeans Proteção Moto', 'Óculos Motociclista Retro', 'Relógio Masculino Rider', 'Meia Cano Alto Biker'] },
+    { name: 'Super Ofertas 🔥', keywords: ['Capacete Axxis Draken', 'Intercomunicador FreedConn T-Com', 'Luva de Couro Monster X', 'Kit Transmissão DID Gold', 'Jaqueta Motoqueiro Cordura', 'Bota de Couro Impermeável', 'Suporte GPS Moto Pro', 'Capa para Moto Térmica', 'Trava de Disco com Alarme', 'Kit Reparo Vacina Pneu', 'Suporte de Placa Articulado'] }
 ];
 
 const NICHE_WHITELIST = [
     'moto', 'motociclista', 'motociclismo', 'rider', 'biker', 'capacete', 'helmet', 'jaqueta', 'jacket',
     'luva', 'glove', 'bota', 'boot', 'racing', 'paddock', 'trail', 'custom', 'harley', 'honda', 'yamaha',
     'suzuki', 'kawasaki', 'bmw motorrad', 'triumph', 'ducati', 'ls2', 'alpinestars', 'agv', 'shark',
-    'bell', 'mt helmets', 'axxis', 'x11', 'givi', 'scam', 'bauleto', 'intercomunicador', 'escapamento'
+    'bell', 'mt helmets', 'axxis', 'x11', 'givi', 'scam', 'bauleto', 'intercomunicador', 'escapamento',
+    'protetor de motor', 'slider', 'pneu moto', 'kit relação', 'corrente moto', 'pastilha freio moto',
+    'filtro ar moto', 'vela iridium', 'óleo moto', 'motul', 'repsol', 'yamalube', 'mobil super moto'
 ];
 
 // ═══════════════════════════════════════════════════════════

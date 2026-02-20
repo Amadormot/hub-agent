@@ -96,10 +96,12 @@ async function fetchDirectRSS() {
     ];
 
     const allNews = [];
+    const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
     for (const feed of feeds) {
         try {
             const res = await fetch(feed.url, {
-                headers: { 'User-Agent': 'MotoHubBrasil/1.0' }
+                headers: { 'User-Agent': USER_AGENT }
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const xml = await res.text();
@@ -127,13 +129,15 @@ async function fetchGoogleNews() {
     ];
 
     const allNews = [];
+    const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
     for (const keyword of queries) {
         try {
             const query = encodeURIComponent(keyword);
             const url = `https://news.google.com/rss/search?q=${query}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
 
             const res = await fetch(url, {
-                headers: { 'User-Agent': 'MotoHubBrasil/1.0' }
+                headers: { 'User-Agent': USER_AGENT }
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const xml = await res.text();
@@ -303,32 +307,48 @@ async function searchImageOnWeb(keywords) {
  * Busca metadados do artigo (imagem og:image + descrição)
  */
 async function fetchArticleMeta(url) {
+    const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
     try {
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'MotoHubBrasil/1.0' },
+            headers: { 'User-Agent': USER_AGENT },
             redirect: 'follow',
-            signal: AbortSignal.timeout(8000)
+            signal: AbortSignal.timeout(10000)
         });
         if (!res.ok) return {};
         const html = await res.text();
 
-        // og:image
-        const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-
-        // og:description
-        const ogDesc = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
-            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i);
-
-        // twitter:image (fallback)
-        const twImg = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
-            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
-
-        return {
-            image: (ogImg && ogImg[1]) || (twImg && twImg[1]) || null,
-            description: (ogDesc && ogDesc[1]) || null
+        // Regex melhorados para capturar conteúdo independentemente da ordem dos atributos
+        const findMeta = (propName) => {
+            const regex = new RegExp(`<meta[^>]+(?:property|name)=["']${propName}["'][^>]+content=["']([^"']+)["']|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${propName}["']`, 'i');
+            const match = html.match(regex);
+            return match ? (match[1] || match[2]) : null;
         };
-    } catch {
+
+        let image = findMeta('og:image') || findMeta('twitter:image') || findMeta('image');
+        const description = findMeta('og:description') || findMeta('twitter:description') || findMeta('description');
+
+        // RESOLVER URLS RELATIVAS
+        if (image && !image.startsWith('http')) {
+            try {
+                const urlObj = new URL(url);
+                if (image.startsWith('//')) {
+                    image = `https:${image}`;
+                } else if (image.startsWith('/')) {
+                    image = `${urlObj.protocol}//${urlObj.host}${image}`;
+                } else {
+                    const path = urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1);
+                    image = `${urlObj.protocol}//${urlObj.host}${path}${image}`;
+                }
+                console.log(`     🔗 URL Relativa resolvida: ${image}`);
+            } catch (e) {
+                console.log(`     ⚠️ Falha ao resolver URL da imagem: ${image}`);
+            }
+        }
+
+        return { image, description };
+    } catch (err) {
+        console.log(`     ⚠️ Erro ao buscar meta (${url.slice(0, 30)}...): ${err.message}`);
         return {};
     }
 }
@@ -515,36 +535,73 @@ async function main() {
         const shortTitle = item.title.length > 60 ? item.title.slice(0, 57) + '...' : item.title;
         process.stdout.write(`   📰 [${new Date(item.date).toLocaleTimeString()}] "${shortTitle}" `);
 
-        if (opts.dryRun) {
-            console.log('→ ✅ [simulação]');
-            published++;
-            continue;
-        }
 
         try {
-            // Verificar duplicata no banco
-            const existing = await supabaseGet('news', `title=ilike.*${encodeURIComponent(item.title.slice(0, 25))}*&limit=1`, token);
-            if (existing && existing.length > 0) {
-                console.log('→ ⏭️  já existe');
-                skipped++;
-                continue;
+            // Verificar duplicata no banco (apenas em produção)
+            if (!opts.dryRun) {
+                const existing = await supabaseGet('news', `title=ilike.*${encodeURIComponent(item.title.slice(0, 25))}*&limit=1`, token);
+                if (existing && existing.length > 0) {
+                    console.log('→ ⏭️  já existe');
+                    skipped++;
+                    continue;
+                }
             }
             // Buscar imagem real e descrição do artigo
             process.stdout.write('🔗 ');
             const meta = await fetchArticleMeta(item.url);
 
-            const articleSummary = meta.description
-                ? cleanText(meta.description).slice(0, 300)
+            let articleSummary = meta.description
+                ? cleanText(meta.description).slice(0, 400)
                 : item.summary;
 
-            // Cadeia de fallback para imagem revisada (v2.9.7):
+            // Se o resumo ainda for muito curto ou genérico, tenta pegar os primeiros parágrafos do HTML
+            if (articleSummary.length < 50 || articleSummary.includes('Notícia via')) {
+                try {
+                    const res = await fetch(item.url, {
+                        headers: { 'User-Agent': USER_AGENT },
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    if (res.ok) {
+                        const html = await res.text();
+                        const pMatches = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi);
+                        if (pMatches) {
+                            const pTexts = pMatches
+                                .map(p => cleanText(p))
+                                .filter(t => t.length > 40)
+                                .slice(0, 2)
+                                .join(' ');
+                            if (pTexts.length > 50) {
+                                articleSummary = pTexts.slice(0, 400);
+                                process.stdout.write('📝 ');
+                            }
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
+            // Cadeia de fallback para imagem revisada (v3.1.0):
             // 1. og:image do artigo
             // 2. Buscar imagem na web por marca/modelo encontrados no Título
             // 3. Buscar imagem na web por marca/modelo encontrados no Resumo/Descrição
             // 4. Buscar imagem genérica de moto baseada no título
-            // 5. Imagem aleatória de stock (Último recurso)
+            // 5. [REMOVIDO] Imagem aleatória de stock (Nunca mais usar)
             let articleImage = meta.image;
             let imageSource = '🖼️';
+
+            // LISTA NEGRA DE IMAGENS GENÉRICAS (Placeholders, Logos, etc)
+            const isGenericImage = (url) => {
+                if (!url) return true;
+                const lower = url.toLowerCase();
+                return lower.includes('google') ||
+                    lower.includes('placeholder') ||
+                    lower.includes('logo') ||
+                    lower.includes('default') ||
+                    lower.includes('avatar');
+            };
+
+            if (isGenericImage(articleImage)) {
+                articleImage = null;
+            }
 
             if (!articleImage) {
                 // Tenta extrair do título
@@ -574,16 +631,16 @@ async function main() {
                 imageSource = '🌐';
             }
 
-            if (!articleImage) {
-                // Fallback para banco interno caso falhe a busca web
-                articleImage = randomImage();
-                imageSource = '📷';
+            // TRAVA DE SEGURANÇA: Nenhuma notícia sem imagem REAL é publicada
+            if (!articleImage || articleImage.length < 10 || isGenericImage(articleImage)) {
+                console.log('→ 🚫 [ERROR: No Real Image Found] skipping news...');
+                errors++;
+                continue;
             }
 
-            // TRAVA DE SEGURANÇA: Nenhuma notícia sem imagem é publicada
-            if (!articleImage || articleImage.length < 10) {
-                console.log('→ 🚫 [ERROR: No Image Found] skipping...');
-                errors++;
+            if (opts.dryRun) {
+                console.log(`→ ✅ [simulação] ${imageSource}`);
+                published++;
                 continue;
             }
 

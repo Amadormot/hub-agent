@@ -135,7 +135,7 @@ export default function UserListModal({ isOpen, onClose, title, userIds, onUserS
                                                         <span className="bg-primary/20 text-primary text-[8px] px-1.5 py-0.5 rounded uppercase font-black border border-primary/20">Lvl {item.level || 1}</span>
                                                     </div>
                                                     <p className="text-[11px] text-gray-500 line-clamp-1 italic">
-                                                        {item.motorcycle?.model ? `${item.motorcycle.model}` : (item.bio || "Buscando o horizonte")}
+                                                        {item.motorcycle?.model ? `${item.motorcycle.model}` : item.bio}
                                                     </p>
                                                 </div>
 

@@ -4,6 +4,9 @@ import { getPatchByLevel } from '../constants/patches';
 import { useNotification } from '../contexts/NotificationContext';
 import { useState } from 'react';
 
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+
 export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
     const { notify } = useNotification();
     const [isExporting, setIsExporting] = useState(false);
@@ -47,8 +50,48 @@ export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
         const blob = await generateImage();
         if (!blob) return;
 
-        const file = new File([blob], `pilot-card-${user.name.toLowerCase().replace(/\s+/g, '-')}.png`, { type: 'image/png' });
+        const fileName = `pilot-card-${user.name.toLowerCase().replace(/\s+/g, '-')}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
 
+        // Native Capacitor Share check
+        try {
+            const canShare = await Share.canShare();
+            if (canShare.value) {
+                // Convert blob to base64 for native share using a Promise
+                const base64data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]); // Only get the base64 string
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+
+                // Write file to local cache for more stable sharing
+                const fileName = `pilot-card-${Date.now()}.png`;
+                await Filesystem.writeFile({
+                    path: fileName,
+                    data: base64data,
+                    directory: Directory.Cache
+                });
+
+                const fileUri = await Filesystem.getUri({
+                    path: fileName,
+                    directory: Directory.Cache
+                });
+
+                await Share.share({
+                    title: 'Meu Pilot Card - Stories',
+                    text: 'Dá um check no meu perfil no Jornada Biker! 🏍️🔥',
+                    files: [fileUri.uri], // Use the local file URI
+                    dialogTitle: 'Compartilhar no Instagram',
+                });
+                return;
+            }
+        } catch (e) {
+            console.error('Native share error:', e);
+            notify("Erro no compartilhamento nativo. Usando modo de segurança.", "warning");
+        }
+
+        // Web Share API fallback
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
                 await navigator.share({
@@ -59,14 +102,13 @@ export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     console.log('Error sharing file:', error);
-                    // Fallback to download if sharing fails
                     downloadBlob(blob);
                 }
             }
         } else {
             // Fallback: Download and copy link
             downloadBlob(blob);
-            notify("Seu navegador não suporta compartilhamento direto de imagem. O card foi baixado!", "info");
+            notify("O card foi baixado! Agora você pode postar no Instagram.", "info");
         }
     };
 
@@ -250,25 +292,6 @@ export default function ProfileShareModal({ isOpen, onClose, user, stats }) {
                                 )}
                             </button>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    onClick={async () => {
-                                        const blob = await generateImage();
-                                        if (blob) downloadBlob(blob);
-                                    }}
-                                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-                                >
-                                    <Download size={16} />
-                                    Baixar Imagem
-                                </button>
-                                <button
-                                    onClick={handleCopy}
-                                    className="bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-2xl transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-                                >
-                                    <Copy size={16} />
-                                    Copiar Link
-                                </button>
-                            </div>
                         </div>
 
                         <button

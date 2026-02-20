@@ -52,9 +52,9 @@ export default function ProductDetailsModal({ product, isOpen, onClose, onBuy })
                                         {product.category}
                                     </span>
                                     {product.source === 'Sales AI Agent' && (
-                                        <span className="text-[10px] font-black bg-white/5 text-gray-400 px-2 py-1 rounded-md uppercase tracking-widest border border-white/5">
-                                            IA VERIFIED
-                                        </span>
+                                        <div className="flex items-center gap-1.5 text-[10px] font-bold underline decoration-primary/30 underline-offset-4 uppercase tracking-wider">
+                                            {product.store}
+                                        </div>
                                     )}
                                 </div>
 
@@ -104,7 +104,7 @@ export default function ProductDetailsModal({ product, isOpen, onClose, onBuy })
                                     IR PARA LOJA PARCEIRA <ExternalLink size={20} />
                                 </a>
                                 <p className="text-[10px] text-gray-500 text-center mt-4 font-bold">
-                                    Ao comprar por este link você apoia o 'Jornada Biker' sem pagar nada a mais por isso.
+                                    Ao comprar por este link você apoia o Jornada Biker sem pagar nada a mais por isso.
                                 </p>
                             </div>
                         </div>
