@@ -37,12 +37,19 @@ const AFFILIATE_CONFIG = {
 };
 
 const PRODUCT_CATEGORIES = [
-    { name: 'Equipamentos', keywords: ['Capacete LS2 Rapid', 'Jaqueta Alpinestars T-GP', 'Luva X11 Fit X', 'Bota Macboot Moto', 'Capacete MT Stinger'] },
-    { name: 'Acessórios', keywords: ['Intercomunicador Ejeas V6 Pro', 'Suporte Celular Alumínio', 'Baú Bauleto Givi 45L', 'Cadeado Corrente Moto High Security', 'Antena Corta-Pipa Inox'] },
-    { name: 'Peças', keywords: ['Pneu Metzeler Karoo Street', 'Kit Relação Vaz Gold', 'Pastilha Freio Cobreq Racing', 'Filtro Ar Lavável', 'Escapamento Esportivo Yoshimura'] },
-    { name: 'Manutenção', keywords: ['Kit Limpeza Motul C1 C4', 'Graxa Branca Spray', 'Capa de Chuva Pantaneiro', 'Carregador Bateria Inteligente'] },
-    { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog'] },
-    { name: 'Super Ofertas 🔥', keywords: ['Capacete Axxis Draken', 'Intercomunicador FreedConn T-Com', 'Luva de Couro Monster X', 'Kit Transmissão DID Gold', 'Jaqueta Motoqueiro Cordura'] }
+    { name: 'Equipamentos', keywords: ['Capacete LS2 Rapid', 'Jaqueta Alpinestars T-GP', 'Luva X11 Fit X', 'Bota Macboot Moto', 'Capacete MT Stinger', 'Capacete Shark D-Skwal', 'Jaqueta LS2 Alba', 'Luva Alpinestars SP-8', 'Bota Alpine Stars SMX', 'Capacete Bell Qualifier'] },
+    { name: 'Acessórios', keywords: ['Intercomunicador Ejeas V6 Pro', 'Suporte Celular Alumínio', 'Baú Bauleto Givi 45L', 'Cadeado Corrente Moto High Security', 'Antena Corta-Pipa Inox', 'Protetor de Motor Scam', 'Afastador de Alforge', 'Bolha Esportiva', 'Slider de Motor', 'Protetor de Punho'] },
+    { name: 'Peças', keywords: ['Pneu Metzeler Karoo Street', 'Kit Relação Vaz Gold', 'Pastilha Freio Cobreq Racing', 'Filtro Ar Lavável', 'Escapamento Esportivo Yoshimura', 'Vela Iridium NGK', 'Amortecedor de Direção', 'Pedaleira Esportiva', 'Manete Esportivo Retrátil', 'Disco de Freio Wave'] },
+    { name: 'Manutenção', keywords: ['Kit Limpeza Motul C1 C4', 'Graxa Branca Spray', 'Capa de Chuva Pantaneiro', 'Carregador Bateria Inteligente', 'Cera para Proteção Pintura', 'Óleo Repsol 10W40', 'Escova Limpeza Corrente', 'Kit Reparo Pneu Sem Câmara', 'Elevador Hidráulico Moto'] },
+    { name: 'Moda & Estilo', keywords: ['Camiseta Moto Hub Brasil', 'Moleton Yamaha Racing', 'Boné Honda Wing', 'Chaveiro Moto Couro', 'Carteira Slim Motovlog', 'Bandana Tubular Rider', 'Camiseta Harley Davidson', 'Jaqueta Jeans Proteção Moto', 'Óculos Motociclista Retro'] },
+    { name: 'Super Ofertas 🔥', keywords: ['Capacete Axxis Draken', 'Intercomunicador FreedConn T-Com', 'Luva de Couro Monster X', 'Kit Transmissão DID Gold', 'Jaqueta Motoqueiro Cordura', 'Bota de Couro Impermeável', 'Suporte GPS Moto Pro', 'Capa para Moto Térmica', 'Trava de Disco com Alarme'] }
+];
+
+const NICHE_WHITELIST = [
+    'moto', 'motociclista', 'motociclismo', 'rider', 'biker', 'capacete', 'helmet', 'jaqueta', 'jacket',
+    'luva', 'glove', 'bota', 'boot', 'racing', 'paddock', 'trail', 'custom', 'harley', 'honda', 'yamaha',
+    'suzuki', 'kawasaki', 'bmw motorrad', 'triumph', 'ducati', 'ls2', 'alpinestars', 'agv', 'shark',
+    'bell', 'mt helmets', 'axxis', 'x11', 'givi', 'scam', 'bauleto', 'intercomunicador', 'escapamento'
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -313,18 +320,18 @@ async function main() {
 
                 console.log(`📦 Processando: ${p.name} [Meta ${platformId}: ${platformStats[platformId]}/${targetPerPlatform}]`);
 
-                // BUSCA BLINDADA
-                const searchKeyword = `${keyword} motociclismo`;
+                // BUSCA BLINDADA (Loja Oficial + Nicho)
+                const searchKeyword = `${keyword} motociclismo loja oficial`;
                 const { image, directUrl } = await researchProductAssets(searchKeyword, platformId);
                 if (!image) {
                     console.log('⚠️ Sem imagem, pulando...');
                     continue;
                 }
 
-                // FILTRO DE RELEVÂNCIA
-                const blacklist = ['stitch', 'disney', 'infantil', 'brinquedo', 'lego'];
+                // FILTRO DE RELEVÂNCIA (Blacklist + Whitelist de Nicho)
+                const blacklist = ['stitch', 'disney', 'infantil', 'brinquedo', 'lego', 'kids'];
                 if (blacklist.some(b => p.name.toLowerCase().includes(b))) {
-                    console.log(`❌ Bloqueio de Relevância: ${p.name}`);
+                    console.log(`❌ Bloqueio de Blacklist: ${p.name}`);
                     continue;
                 }
 
@@ -337,8 +344,17 @@ async function main() {
                     realTitle = fallbackData.title;
                 }
 
+                // POLÍTICA DE CURADORIA DE ELITE (Whitelist de Nicho)
+                if (realTitle) {
+                    const isNiche = NICHE_WHITELIST.some(w => realTitle.toLowerCase().includes(w));
+                    if (!isNiche) {
+                        console.log(`🚫 REJEITADO (Nicho): Título "${realTitle}" não parece ser de motociclismo.`);
+                        continue;
+                    }
+                }
+
                 if (!realPrice || !realTitle) {
-                    console.log(`🚫 REJEITADO: Dados incompletos para ${keyword}.`);
+                    console.log(`🚫 REJEITADO (Dados): Informações incompletas para ${keyword}.`);
                     continue;
                 }
 
