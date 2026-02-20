@@ -159,23 +159,32 @@ async function researchProductAssets(keywords, platformId) {
     } catch { return { image: null, directUrl: null }; }
 }
 
-async function scrapeRealPrice(url, platformId) {
-    if (!url) return null;
+async function scrapeProductData(url, platformId) {
+    if (!url) return { price: null, title: null };
     try {
         const res = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' },
             signal: AbortSignal.timeout(8000)
         });
-        if (!res.ok) return null;
+        if (!res.ok) return { price: null, title: null };
         const html = await res.text();
 
         let price = null;
+        let title = null;
+
         if (platformId === 'mercado_livre') {
             const metaPrice = /<meta itemprop="price" content="([\d.]+)"/.exec(html);
             if (metaPrice) price = `R$ ${parseFloat(metaPrice[1]).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
             else {
                 const spanPrice = /class="andes-money-amount__fraction"[^>]*>([\d.]+)</.exec(html);
                 if (spanPrice) price = `R$ ${spanPrice[1].replace('.', ',')}`;
+            }
+
+            const titleMatch = /<h1 class="ui-pdp-title">([^<]+)<\/h1>/.exec(html);
+            if (titleMatch) title = titleMatch[1].trim();
+            else {
+                const ogTitle = /property="og:title" content="([^"]+)"/.exec(html);
+                if (ogTitle) title = ogTitle[1].trim();
             }
         } else if (platformId === 'amazon') {
             const amazonPrice = /class="a-offscreen"[^>]*>R\$\s?([\d.,]+)</.exec(html);
@@ -184,9 +193,19 @@ async function scrapeRealPrice(url, platformId) {
                 const wholePrice = /class="a-price-whole"[^>]*>([\d.,]+)/.exec(html);
                 if (wholePrice) price = `R$ ${wholePrice[1].trim()}`;
             }
+
+            const amazonTitle = /id="productTitle"[^>]*>([^<]+)</.exec(html);
+            if (amazonTitle) title = amazonTitle[1].trim();
         }
-        return price;
-    } catch (e) { return null; }
+
+        // Validação de Nome Falso/Genérico
+        if (title && (title.length < 15 || title.toLowerCase() === platformId.replace('_', ' '))) {
+            console.log(`⚠️ Título considerado genérico ou curto demais: ${title}`);
+            title = null;
+        }
+
+        return { price, title };
+    } catch (e) { return { price: null, title: null }; }
 }
 
 async function researchDirectLink(keywords, platformId) {
@@ -307,42 +326,44 @@ async function main() {
                     continue;
                 }
 
-                // FILTRO DE RELEVÂNCIA: Evitar termos genéricos ou infantis se o mestre reclamou
+                // FILTRO DE RELEVÂNCIA
                 const blacklist = ['stitch', 'disney', 'infantil', 'brinquedo', 'lego'];
                 if (blacklist.some(b => p.name.toLowerCase().includes(b))) {
                     console.log(`❌ Bloqueio de Relevância: ${p.name}`);
                     continue;
                 }
 
-                // EXTRAÇÃO DE PREÇO REAL (TRAVA DE SEGURANÇA)
-                let realPrice = await scrapeRealPrice(directUrl, platformId);
+                // EXTRAÇÃO DE DADOS REAIS (Preço + Título)
+                let { price: realPrice, title: realTitle } = await scrapeProductData(directUrl, platformId);
 
-                // Se falhou no link direto, tenta o fallback pelo Sniper Direct antes de desistir
-                if (!realPrice || realPrice.includes('VER PRECO')) {
+                // Fallback pelo Sniper Direct
+                if (!realPrice || !realTitle) {
                     const fallbackUrl = await researchDirectLink(searchKeyword, platformId);
-                    realPrice = await scrapeRealPrice(fallbackUrl, platformId);
+                    const fallbackData = await scrapeProductData(fallbackUrl, platformId);
+                    realPrice = fallbackData.price;
+                    realTitle = fallbackData.title;
                 }
 
-                // POLÍTICA DE TOLERÂNCIA ZERO: Não tem preço? Não publica.
-                if (!realPrice || realPrice === 'VER PREÇO NA LOJA' || realPrice === 'CONFIRA NA LOJA') {
-                    console.log(`🚫 REJEITADO: Preço real não encontrado para ${p.name}.`);
+                // POLÍTICA DE NOMES REAIS & PREÇO
+                if (!realPrice || !realTitle) {
+                    console.log(`🚫 REJEITADO: Dados reais (nome/preço) incompletos para ${keyword}.`);
                     continue;
                 }
 
-                const affiliateLink = generateAffiliateLink(keyword, platformId, directUrl);
+                const affiliateLink = generateAffiliateLink(realTitle, platformId, directUrl);
 
                 if (directUrl) console.log(`🎯 Link Sniper Achado: ${directUrl}`);
+                console.log(`🏷️ Nome Real: ${realTitle}`);
                 console.log(`💰 Preço Confirmado: ${realPrice}`);
-                console.log(`🔗 Link Final (Com sua Chave): ${affiliateLink}`);
 
                 const productRecord = {
-                    name: p.name,
+                    name: realTitle, // 100% nome da loja
                     price: realPrice,
                     image: image,
                     category: category.name,
                     link: affiliateLink,
-                    description: `${p.intel || ''} ${p.description} Seleção inteligente Jornada Biker via ${platformId.replace('_', ' ').toUpperCase()}.`,
-                    discount: null, // Removendo descontos simulados
+                    description: `${p.description} Seleção inteligente Jornada Biker via ${platformId.replace('_', ' ').toUpperCase()}.`,
+                    discount: null,
                     source: 'Sales AI Agent',
                     active: true
                 };
@@ -354,7 +375,7 @@ async function main() {
                 } else {
                     try {
                         const result = await supabaseInsert('products', productRecord, token);
-                        console.log(`✅ Publicado com Preço Real! ID: ${result.id} | Valor: ${realPrice}`);
+                        console.log(`✅ Publicado! ID: ${result.id} | ${realTitle} | ${realPrice}`);
                         platformStats[platformId]++;
                         totalPublished++;
                     } catch (err) {

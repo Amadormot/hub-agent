@@ -2,7 +2,7 @@ name: Moto Hub Product Agent 🤖
 
 on:
   schedule:
-    - cron: '0 9 * * *' # Runs every day at 09:00 UTC
+    - cron: '0 */2 * * *' # Runs every 2 hours
   workflow_dispatch: # Allows manual run from GitHub UI
 
 jobs:
