@@ -8,19 +8,45 @@ import PullToRefresh from '../components/PullToRefresh';
 export default function Garagem() {
     const { registerSale, products, refreshData } = useData();
     const [selectedCategory, setSelectedCategory] = useState('Todos');
+    const [selectedPlatform, setSelectedPlatform] = useState('Todos');
+    const [sortBy, setSortBy] = useState('recent');
     const [searchTerm, setSearchTerm] = useState('');
     const [showSaleToast, setShowSaleToast] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const categories = ['Todos', 'Equipamentos', 'Peças', 'Acessórios', 'Manutenção', 'Moda & Estilo'];
+    const platforms = ['Todos', 'Amazon', 'Mercado Livre'];
 
-    // Prioritize DB Products
-    const filteredProducts = products.filter(product => {
-        const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
-        const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesCategory && matchesSearch;
-    });
+    const getPriceValue = (priceStr) => {
+        if (!priceStr) return 0;
+        const cleaned = priceStr.replace('R$', '').replace('.', '').replace(',', '.').trim();
+        return parseFloat(cleaned) || 0;
+    };
+
+    const filteredProducts = useMemo(() => {
+        let result = products.filter(product => {
+            const matchesCategory = selectedCategory === 'Todos' || product.category === selectedCategory;
+            const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+            // Platform detection logic based on link
+            const isAmazon = product.link?.includes('amazon.com.br');
+            const isML = product.link?.includes('mercadolivre.com.br');
+
+            const matchesPlatform = selectedPlatform === 'Todos' ||
+                (selectedPlatform === 'Amazon' && isAmazon) ||
+                (selectedPlatform === 'Mercado Livre' && isML);
+
+            return matchesCategory && matchesSearch && matchesPlatform;
+        });
+
+        // Sorting
+        return result.sort((a, b) => {
+            if (sortBy === 'price_asc') return getPriceValue(a.price) - getPriceValue(b.price);
+            if (sortBy === 'price_desc') return getPriceValue(b.price) - getPriceValue(a.price);
+            return 0; // 'recent' is default by DB order
+        });
+    }, [products, selectedCategory, searchTerm, selectedPlatform, sortBy]);
 
     const handleBuyClick = (e, product) => {
         registerSale(product);
@@ -42,24 +68,8 @@ export default function Garagem() {
                     <h2 className="text-2xl font-black text-white flex items-center gap-2">
                         MINHA <span className="text-primary text-3xl italic">GARAGEM</span>
                     </h2>
-                    <p className="text-gray-500 text-xs">As melhores ofertas com links de afiliado do Moto Hub.</p>
+                    <p className="text-gray-500 text-xs italic uppercase tracking-widest">Marketplace de Afiliados Moto Hub</p>
                 </div>
-
-                {/* Featured Banner (Simulated) */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-8 p-4 rounded-3xl bg-gradient-to-br from-primary/20 to-blue-500/10 border border-white/5 relative overflow-hidden group"
-                >
-                    <div className="absolute top-0 right-0 p-2">
-                        <CheckCircle className="text-primary opacity-20" size={80} />
-                    </div>
-                    <div className="relative z-10">
-                        <span className="text-[10px] font-black bg-primary text-black px-2 py-0.5 rounded-full mb-2 inline-block">MOTO HUB DEALS</span>
-                        <h3 className="text-lg font-black text-white leading-tight">OFERTAS DE <br />AFILIADOS <span className="text-primary italic text-xl">24H</span></h3>
-                        <p className="text-xs text-gray-400 mt-1 max-w-[200px]">Produtos selecionados manualmente com descontos reais.</p>
-                    </div>
-                </motion.div>
 
                 {/* Search Bar */}
                 <div className="relative mb-6">
@@ -69,24 +79,56 @@ export default function Garagem() {
                         placeholder="O que você precisa hoje?"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all placeholder:text-gray-600 backdrop-blur-sm"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-primary/50 transition-all placeholder:text-gray-600 backdrop-blur-sm shadow-inner"
                     />
                 </div>
 
-                {/* Categories */}
-                <div className="flex gap-2 overflow-x-auto pb-6 scrollbar-hide mb-2">
-                    {categories.map((category) => (
-                        <button
-                            key={category}
-                            onClick={() => setSelectedCategory(category)}
-                            className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-[11px] font-black transition-all border ${selectedCategory === category
-                                ? 'bg-primary border-primary text-black shadow-lg shadow-primary/20 scale-105'
-                                : 'bg-white/5 border-white/5 text-gray-500 hover:border-white/20'
-                                }`}
+                {/* Advanced Filters Toolbar */}
+                <div className="space-y-4 mb-8">
+                    {/* Categories Tabs */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {categories.map((category) => (
+                            <button
+                                key={category}
+                                onClick={() => setSelectedCategory(category)}
+                                className={`whitespace-nowrap px-5 py-2.5 rounded-2xl text-[10px] font-black transition-all border ${selectedCategory === category
+                                    ? 'bg-primary border-primary text-black shadow-lg shadow-primary/20'
+                                    : 'bg-white/5 border-white/5 text-gray-400 hover:border-white/20'
+                                    }`}
+                            >
+                                {category.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Platform & Sort Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* Platform Filter */}
+                        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 overflow-hidden">
+                            {platforms.map(p => (
+                                <button
+                                    key={p}
+                                    onClick={() => setSelectedPlatform(p)}
+                                    className={`flex-1 py-2 text-[8px] font-black rounded-xl transition-all ${selectedPlatform === p
+                                        ? 'bg-white/10 text-white shadow-sm'
+                                        : 'text-gray-600'}`}
+                                >
+                                    {p.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Sort Toggle */}
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="bg-white/5 border border-white/5 text-white text-[9px] font-black rounded-2xl px-3 focus:outline-none appearance-none cursor-pointer text-center uppercase tracking-tighter"
                         >
-                            {category.toUpperCase()}
-                        </button>
-                    ))}
+                            <option value="recent">Mais Recentes</option>
+                            <option value="price_asc">Menor Preço</option>
+                            <option value="price_desc">Maior Preço</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Products Grid */}
@@ -104,9 +146,17 @@ export default function Garagem() {
                                 <div className="aspect-[4/5] relative overflow-hidden bg-white/5">
                                     <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
 
+                                    {/* Platform Indicator */}
+                                    <div className="absolute top-3 left-3 z-20">
+                                        {product.link?.includes('amazon') ? (
+                                            <span className="bg-orange-500/80 backdrop-blur-sm text-[8px] font-black text-white px-2 py-0.5 rounded-lg border border-white/20">AMAZON</span>
+                                        ) : (
+                                            <span className="bg-yellow-400/80 backdrop-blur-sm text-[8px] font-black text-black px-2 py-0.5 rounded-lg border border-black/10">M. LIVRE</span>
+                                        )}
+                                    </div>
 
                                     {/* Category Chip */}
-                                    <div className="absolute bottom-3 left-3 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white font-bold border border-white/10 flex items-center gap-1 z-20 uppercase tracking-tighter">
+                                    <div className="absolute bottom-3 right-3 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg text-[8px] text-white font-bold border border-white/10 flex items-center gap-1 z-20 uppercase tracking-tighter">
                                         {product.category}
                                     </div>
 
@@ -120,7 +170,7 @@ export default function Garagem() {
                                     <div className="mt-auto pt-2">
                                         <div className="flex items-baseline gap-1">
                                             <span className="text-[10px] text-primary font-bold uppercase">R$</span>
-                                            <span className="text-xl font-black text-white">{product.price.replace('R$', '').trim()}</span>
+                                            <span className="text-xl font-black text-white">{product.price?.toString().replace('R$', '').trim()}</span>
                                         </div>
 
                                         <button
@@ -137,10 +187,11 @@ export default function Garagem() {
                 </div>
 
                 {filteredProducts.length === 0 && (
-                    <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10 mt-4">
-                        <ShoppingBag size={48} className="mx-auto text-gray-800 mb-4 opacity-50" />
-                        <p className="text-gray-500 text-sm font-bold">Nenhum produto em sintonia.</p>
-                        <button onClick={() => { setSearchTerm(''); setSelectedCategory('Todos') }} className="mt-4 text-primary text-xs font-black bg-primary/10 px-6 py-2 rounded-full border border-primary/20">LIMPAR BUSCA</button>
+                    <div className="text-center py-20 bg-white/5 rounded-[40px] border border-dashed border-white/10 mt-4 backdrop-blur-sm">
+                        <ShoppingBag size={48} className="mx-auto text-primary mb-4 opacity-20" />
+                        <p className="text-gray-500 text-sm font-black uppercase italic tracking-widest">Garagem Vazia</p>
+                        <p className="text-gray-700 text-[10px] mt-1 uppercase font-bold px-10">Tente ajustar seus filtros para encontrar novos itens.</p>
+                        <button onClick={() => { setSearchTerm(''); setSelectedCategory('Todos'); setSelectedPlatform('Todos'); setSortBy('recent') }} className="mt-6 text-primary text-[10px] font-black bg-primary/10 px-8 py-3 rounded-2xl border border-primary/20 hover:bg-primary hover:text-black transition-all">LIMPAR TUDO</button>
                     </div>
                 )}
 
